@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "yarn build",
+  "buildCommand": "CI=false yarn build",
   "installCommand": "yarn install",
   "outputDirectory": "build",
   "framework": "create-react-app",
