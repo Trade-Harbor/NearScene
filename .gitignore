@@ -1,0 +1,41 @@
+# Top-level ignores for the NearScene monorepo.
+# Frontend and backend each have their own .gitignore for their specific bits.
+
+# === Secrets — NEVER commit ===
+.env
+.env.local
+.env.*.local
+*/.env
+*/.env.local
+*/.env.*.local
+
+# === Frontend ===
+frontend/node_modules/
+frontend/build/
+frontend/.pnp/
+frontend/coverage/
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# === Backend ===
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.pyc
+backend/.venv/
+backend/venv/
+backend/.pytest_cache/
+backend/.mypy_cache/
+
+# === Test reports / scratch ===
+test_reports/
+*.log
+
+# === Editor / OS ===
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# === Emergent leftovers ===
+.emergent/

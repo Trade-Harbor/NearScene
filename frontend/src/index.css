@@ -1,0 +1,255 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+    margin: 0;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', sans-serif;
+}
+
+code {
+    font-family: 'JetBrains Mono', source-code-pro, Menlo, Monaco, Consolas, monospace;
+}
+
+@layer base {
+    :root {
+        --background: 0 0% 100%;
+        --foreground: 222 47% 11%;
+        --card: 0 0% 100%;
+        --card-foreground: 222 47% 11%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 222 47% 11%;
+        --primary: 239 84% 67%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 328 85% 61%;
+        --secondary-foreground: 0 0% 100%;
+        --muted: 210 40% 96%;
+        --muted-foreground: 215 16% 47%;
+        --accent: 160 84% 39%;
+        --accent-foreground: 0 0% 100%;
+        --destructive: 0 84% 60%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 214 32% 91%;
+        --input: 214 32% 91%;
+        --ring: 239 84% 67%;
+        --chart-1: 239 84% 67%;
+        --chart-2: 328 85% 61%;
+        --chart-3: 160 84% 39%;
+        --chart-4: 38 92% 50%;
+        --chart-5: 262 83% 58%;
+        --radius: 0.75rem;
+    }
+    
+    .dark {
+        --background: 240 10% 4%;
+        --foreground: 210 40% 98%;
+        --card: 240 10% 8%;
+        --card-foreground: 210 40% 98%;
+        --popover: 240 10% 8%;
+        --popover-foreground: 210 40% 98%;
+        --primary: 239 84% 67%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 328 85% 61%;
+        --secondary-foreground: 0 0% 100%;
+        --muted: 217 33% 17%;
+        --muted-foreground: 215 20% 65%;
+        --accent: 160 84% 39%;
+        --accent-foreground: 0 0% 100%;
+        --destructive: 0 62% 30%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 217 33% 17%;
+        --input: 217 33% 17%;
+        --ring: 239 84% 67%;
+        --chart-1: 239 84% 67%;
+        --chart-2: 328 85% 61%;
+        --chart-3: 160 84% 39%;
+        --chart-4: 38 92% 50%;
+        --chart-5: 262 83% 58%;
+    }
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+    body {
+        @apply bg-background text-foreground;
+    }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    @apply bg-muted rounded-full;
+}
+
+::-webkit-scrollbar-thumb {
+    @apply bg-primary/30 rounded-full hover:bg-primary/50 transition-colors;
+}
+
+/* Glassmorphism utilities */
+.glass {
+    @apply bg-white/10 backdrop-blur-md border border-white/20;
+}
+
+.glass-dark {
+    @apply bg-black/40 backdrop-blur-md border border-white/10;
+}
+
+/* Gradient backgrounds */
+.gradient-brand {
+    @apply bg-gradient-to-r from-indigo-500 to-pink-500;
+}
+
+.gradient-brand-text {
+    @apply bg-gradient-to-r from-indigo-500 to-pink-500 bg-clip-text text-transparent;
+}
+
+/* Hero blob animation */
+.hero-blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.5;
+    animation: blob-float 8s ease-in-out infinite;
+}
+
+.hero-blob-1 {
+    background: rgba(99, 102, 241, 0.6);
+    width: 400px;
+    height: 400px;
+    top: -100px;
+    left: -100px;
+}
+
+.hero-blob-2 {
+    background: rgba(236, 72, 153, 0.5);
+    width: 350px;
+    height: 350px;
+    bottom: -50px;
+    right: -50px;
+    animation-delay: -4s;
+}
+
+@keyframes blob-float {
+    0%, 100% {
+        transform: translate(0, 0) scale(1);
+    }
+    33% {
+        transform: translate(30px, -30px) scale(1.1);
+    }
+    66% {
+        transform: translate(-20px, 20px) scale(0.9);
+    }
+}
+
+/* Card hover effects */
+.event-card {
+    @apply transition-all duration-300;
+}
+
+.event-card:hover {
+    @apply -translate-y-2 shadow-xl;
+}
+
+/* Map marker styles */
+.custom-marker {
+    @apply bg-primary text-white px-3 py-1 rounded-full text-sm font-medium shadow-lg;
+    white-space: nowrap;
+}
+
+.custom-marker-truck {
+    @apply bg-secondary text-white px-3 py-1 rounded-full text-sm font-medium shadow-lg;
+}
+
+/* Animation utilities */
+.animate-fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+}
+
+.animate-slide-up {
+    animation: slideUp 0.5s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from { 
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to { 
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Staggered animation delays */
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }
+.stagger-4 { animation-delay: 0.4s; }
+.stagger-5 { animation-delay: 0.5s; }
+
+/* Leaflet map fixes */
+.leaflet-container {
+    @apply rounded-xl;
+    z-index: 1;
+}
+
+.leaflet-popup-content-wrapper {
+    @apply rounded-xl shadow-lg;
+}
+
+.leaflet-popup-content {
+    margin: 12px 16px;
+}
+
+/* Button pill style */
+.btn-pill {
+    @apply rounded-full px-6 py-2.5 font-medium transition-all duration-200;
+}
+
+.btn-pill:hover {
+    @apply scale-105;
+}
+
+.btn-pill:active {
+    @apply scale-95;
+}
+
+/* Input style */
+.input-modern {
+    @apply h-12 rounded-xl bg-muted/50 border-transparent focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all;
+}
+
+/* Badge styles */
+.badge-promoted {
+    @apply bg-gradient-to-r from-indigo-500 to-pink-500 text-white text-xs px-2 py-0.5 rounded-full font-medium;
+}
+
+.badge-free {
+    @apply bg-accent text-white text-xs px-2 py-0.5 rounded-full font-medium;
+}
+
+/* Debug wrapper */
+@layer base {
+    [data-debug-wrapper="true"] {
+        display: contents !important;
+    }
+}
