@@ -9,7 +9,8 @@ database. Pilot region: **Wilmington, NC** + 30-mile radius.
 |--------|-------|-----------|
 | Ticketmaster Discovery | Concerts, sports, theater, ticketed events | 5,000 calls/day |
 | SeatGeek | Concerts, sports, theater (different inventory than TM) | Generous, no published cap |
-| Yelp Fusion | Restaurants, bars, food businesses | 5,000 calls/day |
+| Yelp Fusion | Restaurants, bars, food businesses (dual sort: rating + best_match for chain coverage) | 5,000 calls/day |
+| OpenStreetMap Overpass | Parks, beaches, museums, landmarks, trails | Truly free, no signup, no CC |
 
 Same event reported by both Ticketmaster and SeatGeek is deduped automatically
 via a content hash on `(title, start_date, location_name)`. Re-running the

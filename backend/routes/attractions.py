@@ -132,10 +132,10 @@ def setup_routes(db, calculate_distance, get_current_user, get_optional_user):
         mood: Optional[str] = Query(None),
         amenity: Optional[str] = Query(None),
         search: Optional[str] = Query(None),
-        limit: int = Query(50)
+        limit: int = Query(500)
     ):
         query = {}
-        
+
         if attraction_type:
             query["attraction_type"] = attraction_type
         

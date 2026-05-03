@@ -2137,15 +2137,17 @@ async def admin_get_ingestion_runs(request: Request, token: Optional[str] = None
 
 @api_router.post("/admin/reset-external")
 async def admin_reset_external(request: Request, token: Optional[str] = None):
-    """Wipe all externally-ingested records (events + restaurants) so a fresh
-    ingestion run will re-import them with the latest schema. User-submitted
-    records (no `_source` field) are NOT touched."""
+    """Wipe all externally-ingested records (events, restaurants, attractions)
+    so a fresh ingestion run will re-import them with the latest schema.
+    User-submitted records (no `_source` field) are NOT touched."""
     _check_admin(request, token)
     events_result = await db.events.delete_many({"_source": {"$exists": True}})
     restaurants_result = await db.restaurants.delete_many({"_source": {"$exists": True}})
+    attractions_result = await db.attractions.delete_many({"_source": {"$exists": True}})
     return {
         "events_deleted": events_result.deleted_count,
         "restaurants_deleted": restaurants_result.deleted_count,
+        "attractions_deleted": attractions_result.deleted_count,
     }
 
 

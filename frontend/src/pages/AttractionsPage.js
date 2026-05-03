@@ -86,7 +86,7 @@ export default function AttractionsPage() {
         latitude: location?.latitude,
         longitude: location?.longitude,
         radius: radius,
-        limit: 50
+        limit: 500
       };
 
       if (selectedType && selectedType !== 'all') {

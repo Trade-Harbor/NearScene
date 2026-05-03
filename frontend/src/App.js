@@ -12,6 +12,7 @@ import EventsPage from "./pages/EventsPage";
 import EventDetailPage from "./pages/EventDetailPage";
 import FoodTrucksPage from "./pages/FoodTrucksPage";
 import RestaurantsPage from "./pages/RestaurantsPage";
+import RestaurantDetailPage from "./pages/RestaurantDetailPage";
 import AttractionsPage from "./pages/AttractionsPage";
 import CommunityPage from "./pages/CommunityPage";
 import CreateEventPage from "./pages/CreateEventPage";
@@ -38,6 +39,7 @@ function AppRouter() {
               <Route path="/events/:eventId" element={<EventDetailPage />} />
               <Route path="/food-trucks" element={<FoodTrucksPage />} />
               <Route path="/restaurants" element={<RestaurantsPage />} />
+              <Route path="/restaurants/:restaurantId" element={<RestaurantDetailPage />} />
               <Route path="/attractions" element={<AttractionsPage />} />
               <Route path="/community" element={<CommunityPage />} />
               <Route path="/pricing" element={<PricingPage />} />

@@ -20,7 +20,7 @@ from typing import Dict, Any, List
 
 from motor.motor_asyncio import AsyncIOMotorClient
 
-from . import ticketmaster, seatgeek, yelp
+from . import ticketmaster, seatgeek, yelp, osm_attractions
 from .utils import event_dedup_key, business_dedup_key
 
 log = logging.getLogger(__name__)
@@ -129,6 +129,46 @@ async def ingest_restaurants(db) -> Dict[str, int]:
     return {"inserted": inserted, "skipped": skipped, "total_candidates": len(candidates)}
 
 
+async def ingest_attractions(db) -> Dict[str, int]:
+    """Pull attractions from OSM Overpass, dedupe by name+address, insert."""
+    candidates = await osm_attractions.fetch_attractions()
+    log.info(f"Attraction candidates: {len(candidates)}")
+
+    existing_keys = set()
+    async for doc in db.attractions.find(
+        {"_dedup_key": {"$exists": True}},
+        {"_dedup_key": 1, "_id": 0},
+    ):
+        existing_keys.add(doc["_dedup_key"])
+
+    inserted = 0
+    skipped = 0
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    for a in candidates:
+        key = business_dedup_key(a["name"], a["address"])
+        if key in existing_keys:
+            skipped += 1
+            continue
+
+        attraction_id = f"attraction_{uuid.uuid4().hex[:12]}"
+        doc = {
+            "attraction_id": attraction_id,
+            **a,
+            "owner_id": f"source_{a['_source']}",
+            "owner_name": "OpenStreetMap",
+            "rating": 0.0,
+            "review_count": 0,
+            "created_at": now_iso,
+            "_dedup_key": key,
+        }
+        await db.attractions.insert_one(doc)
+        inserted += 1
+
+    log.info(f"Attractions: inserted={inserted}, skipped_duplicate={skipped}")
+    return {"inserted": inserted, "skipped": skipped, "total_candidates": len(candidates)}
+
+
 async def run_all() -> Dict[str, Any]:
     """Run every source. Returns a summary."""
     db = _get_db()
@@ -136,6 +176,7 @@ async def run_all() -> Dict[str, Any]:
 
     events_result = await ingest_events(db)
     restaurants_result = await ingest_restaurants(db)
+    attractions_result = await ingest_attractions(db)
 
     finished = datetime.now(timezone.utc)
     duration = (finished - started).total_seconds()
@@ -146,6 +187,7 @@ async def run_all() -> Dict[str, Any]:
         "duration_seconds": round(duration, 1),
         "events": events_result,
         "restaurants": restaurants_result,
+        "attractions": attractions_result,
     }
 
     # Audit log so we can see ingestion history

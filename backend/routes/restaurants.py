@@ -186,11 +186,17 @@ def setup_routes(db, calculate_distance, get_current_user, get_optional_user):
         rest = await db.restaurants.find_one({"restaurant_id": restaurant_id}, {"_id": 0})
         if not rest:
             raise HTTPException(status_code=404, detail="Restaurant not found")
-        
+
         if isinstance(rest.get("created_at"), str):
             rest["created_at"] = datetime.fromisoformat(rest["created_at"])
-        
-        rest["is_open_now"] = check_if_open(rest.get("hours", {}))
+
+        # Same three-state open/closed handling as the list endpoint
+        hours = rest.get("hours") or {}
+        rest["is_open_now"] = check_if_open(hours) if hours else None
+
+        # Surface source + external_url for the detail page UI
+        rest["source"] = rest.get("_source")
+        rest["external_url"] = rest.get("_source_url") or rest.get("website")
         
         if latitude and longitude:
             rest["distance"] = round(calculate_distance(

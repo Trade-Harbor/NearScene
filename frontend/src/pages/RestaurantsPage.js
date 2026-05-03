@@ -306,11 +306,12 @@ export default function RestaurantsPage() {
 }
 
 function RestaurantCard({ restaurant }) {
-  // Click anywhere on the card to open the source page (Yelp etc) in a new tab.
-  // Buttons inside the card use stopPropagation to not double-trigger.
-  const detailUrl = restaurant.external_url || restaurant.website;
+  const navigate = useNavigate();
+
+  // Click the card to view full restaurant details on NearScene.
+  // Inner action buttons use stopPropagation so they don't re-trigger the card.
   const handleCardClick = () => {
-    if (detailUrl) window.open(detailUrl, '_blank', 'noopener,noreferrer');
+    navigate(`/restaurants/${restaurant.restaurant_id}`);
   };
 
   return (
