@@ -18,7 +18,8 @@ For Wilmington, NC the available data covers:
 - Hiking trails in Brunswick / Pender counties
 """
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
+from urllib.parse import urlencode
 
 import httpx
 
@@ -88,30 +89,47 @@ out center;
 """
 
 
-async def fetch_attractions() -> List[Dict[str, Any]]:
-    """Pull attractions in the pilot radius from Overpass."""
-    radius_m = int(PILOT_RADIUS_MILES * MILES_TO_METERS)
-    query = _build_query(PILOT_LAT, PILOT_LON, radius_m)
-    log.info(
-        f"Overpass query: lat={PILOT_LAT} lon={PILOT_LON} radius_m={radius_m}, "
-        f"query_len={len(query)} chars"
-    )
+async def _post_overpass(query: str) -> Tuple[int, str, Dict[str, Any]]:
+    """Send the Overpass POST request. Mirrors `curl --data-urlencode data=...`
+    exactly, since httpx.post(data={"data": query}) was eating multi-line content.
+
+    Returns: (status_code, raw_text_first_500, parsed_json_or_empty)
+    """
+    body = urlencode({"data": query})
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": "NearScene-Wilmington/0.1 (steinackerr@gmail.com)",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.post(OVERPASS_URL, content=body, headers=headers)
+    except httpx.HTTPError as e:
+        log.error(f"Overpass HTTP error: {e}")
+        return 0, str(e), {}
+
+    text_preview = resp.text[:500] if resp.text else ""
+    log.info(f"Overpass status={resp.status_code} bytes={len(resp.content)}")
+
+    if resp.status_code != 200:
+        log.error(f"Overpass non-200 body: {text_preview}")
+        return resp.status_code, text_preview, {}
 
     try:
-        async with httpx.AsyncClient(timeout=90.0) as client:
-            resp = await client.post(OVERPASS_URL, data={"data": query})
-            log.info(f"Overpass response: status={resp.status_code} bytes={len(resp.content)}")
-            resp.raise_for_status()
-            data = resp.json()
-    except httpx.HTTPError as e:
-        log.error(f"Overpass API error: {e}")
-        return []
+        return resp.status_code, text_preview, resp.json()
     except ValueError as e:
-        log.error(f"Overpass returned non-JSON response: {e}")
-        return []
+        log.error(f"Overpass JSON parse error: {e}; first chars: {text_preview}")
+        return resp.status_code, text_preview, {}
 
-    elements = data.get("elements", [])
-    log.info(f"Overpass returned {len(elements)} raw OSM elements")
+
+async def _fetch_and_normalize() -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Inner helper: hit Overpass, normalize results, return (records, debug_info).
+    Both the production path and the debug endpoint use this so we make one
+    HTTP call regardless of which entry point you go through."""
+    radius_m = int(PILOT_RADIUS_MILES * MILES_TO_METERS)
+    query = _build_query(PILOT_LAT, PILOT_LON, radius_m)
+
+    status, preview, data = await _post_overpass(query)
+    elements = data.get("elements", []) if isinstance(data, dict) else []
 
     normalized: List[Dict[str, Any]] = []
     skipped_no_name = 0
@@ -127,11 +145,42 @@ async def fetch_attractions() -> List[Dict[str, Any]]:
             else:
                 skipped_no_coords += 1
 
+    debug = {
+        "lat": PILOT_LAT,
+        "lon": PILOT_LON,
+        "radius_m": radius_m,
+        "query_len": len(query),
+        "query_first_300": query[:300],
+        "http_status": status,
+        "response_preview": preview,
+        "raw_elements": len(elements),
+        "skipped_unnamed": skipped_no_name,
+        "skipped_no_coords": skipped_no_coords,
+        "normalized": len(normalized),
+    }
     log.info(
-        f"OSM normalized {len(normalized)} attractions "
-        f"(skipped {skipped_no_name} unnamed, {skipped_no_coords} no_coords)"
+        f"OSM normalized {debug['normalized']} attractions "
+        f"(raw {debug['raw_elements']}, skipped {debug['skipped_unnamed']} unnamed, "
+        f"{debug['skipped_no_coords']} no_coords, status={debug['http_status']})"
     )
-    return normalized
+    return normalized, debug
+
+
+async def fetch_attractions() -> List[Dict[str, Any]]:
+    """Pull attractions in the pilot radius from Overpass."""
+    records, _ = await _fetch_and_normalize()
+    return records
+
+
+async def fetch_attractions_with_debug() -> Dict[str, Any]:
+    """Used by /api/admin/test-osm — returns full diagnostic info plus a
+    sample of records, instead of just the records list."""
+    records, debug = await _fetch_and_normalize()
+    return {
+        **debug,
+        "first_5": records[:5],
+        "names": [r["name"] for r in records[:30]],
+    }
 
 
 def _normalize_attraction(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
