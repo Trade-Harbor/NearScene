@@ -117,8 +117,12 @@ export const EventCard = ({ event, onClick }) => {
                   <span className="text-sm line-through text-muted-foreground">${event.ticket_price}</span>
                   <span className="font-semibold text-primary">${event.discounted_price}</span>
                 </div>
-              ) : (
+              ) : event.ticket_price ? (
                 <span className="font-semibold">${event.ticket_price}</span>
+              ) : (
+                // External event with unknown price (Ticketmaster/SeatGeek often
+                // don't expose pricing in the public API)
+                <span className="font-semibold text-sm">Tickets available</span>
               )}
             </div>
           ) : (

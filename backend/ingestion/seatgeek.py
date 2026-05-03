@@ -82,10 +82,11 @@ def _normalize_event(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     if lat is None or lon is None:
         return None
 
-    # Pricing
+    # Pricing — SeatGeek events are ticketed; mark is_paid=True even when the
+    # lowest price isn't reported by the API (often happens for popular events).
     stats = raw.get("stats") or {}
     lowest = stats.get("lowest_price")
-    is_paid = lowest is not None
+    is_paid = True
     ticket_price = float(lowest) if lowest is not None else None
 
     # Category from `type` field (e.g. "concert", "sports", "theater")
@@ -120,6 +121,7 @@ def _normalize_event(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "is_promoted": False,
         "tags": [],
         "mood_tags": [],
+        "external_url": raw.get("url"),
         "_source": "seatgeek",
         "_source_id": str(raw.get("id")),
         "_source_url": raw.get("url"),

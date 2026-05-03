@@ -106,10 +106,13 @@ def _normalize_event(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         candidates.sort(key=lambda im: im.get("width", 0), reverse=True)
         image_url = candidates[0].get("url")
 
-    # Pricing
+    # Pricing — Ticketmaster events are ALWAYS ticketed (they're a ticketing
+    # platform). priceRanges may not be returned in the public API even when
+    # tickets are paid, so we mark is_paid=True unconditionally and surface
+    # the price only when the API gave us one.
     price_ranges = raw.get("priceRanges") or []
-    is_paid = bool(price_ranges)
-    ticket_price = float(price_ranges[0]["min"]) if price_ranges and price_ranges[0].get("min") else None
+    is_paid = True
+    ticket_price = float(price_ranges[0]["min"]) if price_ranges and price_ranges[0].get("min") is not None else None
 
     # Category from classifications
     classifications = raw.get("classifications") or []
@@ -144,7 +147,11 @@ def _normalize_event(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "is_promoted": False,
         "tags": [t.lower() for t in (raw.get("info", "").split()[:5] if raw.get("info") else [])],
         "mood_tags": [],
-        # Source tracking
+        # Source tracking — `external_url` is also exposed at the top level
+        # so the frontend can link out to the original ticketing page instead
+        # of trying to run an internal Stripe checkout for an event we don't
+        # actually sell tickets for.
+        "external_url": raw.get("url"),
         "_source": "ticketmaster",
         "_source_id": raw.get("id"),
         "_source_url": raw.get("url"),

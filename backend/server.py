@@ -135,6 +135,11 @@ class EventResponse(BaseModel):
     organizer_type: str
     created_at: datetime
     distance: Optional[float] = None
+    # External ticketing URL (set when the event was ingested from Ticketmaster,
+    # SeatGeek, etc.) — the frontend uses this to link out for ticket purchase
+    # instead of running its own Stripe checkout for an event we don't control.
+    external_url: Optional[str] = None
+    source: Optional[str] = None  # "ticketmaster", "seatgeek", or None for user-submitted
 
 class FoodTruckCreate(BaseModel):
     name: str
@@ -2128,6 +2133,20 @@ async def admin_get_ingestion_runs(request: Request, token: Optional[str] = None
     _check_admin(request, token)
     runs = await db.ingestion_runs.find({}, {"_id": 0}).sort("started_at", -1).to_list(limit)
     return runs
+
+
+@api_router.post("/admin/reset-external")
+async def admin_reset_external(request: Request, token: Optional[str] = None):
+    """Wipe all externally-ingested records (events + restaurants) so a fresh
+    ingestion run will re-import them with the latest schema. User-submitted
+    records (no `_source` field) are NOT touched."""
+    _check_admin(request, token)
+    events_result = await db.events.delete_many({"_source": {"$exists": True}})
+    restaurants_result = await db.restaurants.delete_many({"_source": {"$exists": True}})
+    return {
+        "events_deleted": events_result.deleted_count,
+        "restaurants_deleted": restaurants_result.deleted_count,
+    }
 
 
 # Include all routers

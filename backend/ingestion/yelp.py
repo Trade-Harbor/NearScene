@@ -93,6 +93,15 @@ def _normalize_restaurant(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     cuisine = categories[0]["title"] if categories else "Restaurant"
     category_tags = [c.get("alias") for c in categories if c.get("alias")]
 
+    # Yelp returns price as "$", "$$", "$$$", "$$$$" — map to NearScene's int 1-4.
+    # Restaurants without price info default to 2 ($$, mid-range).
+    price_str = raw.get("price") or ""
+    price_level = len(price_str) if price_str else 2
+
+    # Yelp's free tier doesn't return hours via search — leave empty dict.
+    # NearScene's `is_open_now` will then default to False (acceptable for now).
+    hours: dict = {}
+
     return {
         "name": name,
         "description": f"{cuisine} in {location.get('city', '')}",
@@ -108,7 +117,10 @@ def _normalize_restaurant(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "website": raw.get("url"),  # Yelp page URL
         "rating": float(raw.get("rating") or 0),
         "review_count": int(raw.get("review_count") or 0),
-        "price_level": raw.get("price") or "",  # "$", "$$", "$$$", "$$$$"
+        "price_level": price_level,
+        "hours": hours,
+        "features": [],
+        "mood_tags": [],
         "tags": category_tags,
         "_source": "yelp",
         "_source_id": raw.get("id"),

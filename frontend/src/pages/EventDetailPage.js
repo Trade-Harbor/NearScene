@@ -140,6 +140,14 @@ export default function EventDetailPage() {
   };
 
   const handlePurchaseTicket = async () => {
+    // Externally-ingested events (Ticketmaster, SeatGeek) link out to the
+    // original ticketing site instead of using NearScene's Stripe checkout —
+    // we don't actually sell those tickets ourselves.
+    if (event.external_url) {
+      window.open(event.external_url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
     if (!isAuthenticated) {
       toast.error('Please login to purchase tickets');
       navigate('/login');
@@ -422,7 +430,41 @@ export default function EventDetailPage() {
           {/* Sidebar - Ticket Purchase */}
           <div className="lg:col-span-1">
             <div className="sticky top-24 bg-card rounded-2xl p-6 shadow-lg dark:border dark:border-white/10">
-              {event.is_paid ? (
+              {event.external_url ? (
+                // External event (Ticketmaster / SeatGeek) — link out for tickets.
+                // We don't sell these directly, so skip the qty selector + subtotal.
+                <>
+                  <div className="text-center mb-6">
+                    {event.ticket_price && (
+                      <>
+                        <span className="text-sm text-muted-foreground">From</span>
+                        <div className="flex items-center justify-center gap-2">
+                          <span className="text-3xl font-bold">${event.ticket_price}</span>
+                        </div>
+                      </>
+                    )}
+                    {!event.ticket_price && (
+                      <p className="text-lg font-semibold">Tickets available</p>
+                    )}
+                    <Badge variant="secondary" className="mt-2">
+                      via {event.source ? event.source.charAt(0).toUpperCase() + event.source.slice(1) : 'partner site'}
+                    </Badge>
+                  </div>
+                  <Button
+                    className="w-full rounded-full bg-gradient-to-r from-indigo-500 to-pink-500 hover:opacity-90"
+                    size="lg"
+                    onClick={handlePurchaseTicket}
+                    data-testid="buy-tickets-btn"
+                  >
+                    <Ticket className="h-4 w-4 mr-2" />
+                    Get Tickets
+                    <ExternalLink className="h-3 w-3 ml-2" />
+                  </Button>
+                  <p className="text-xs text-center text-muted-foreground mt-3">
+                    You'll be redirected to complete your purchase.
+                  </p>
+                </>
+              ) : event.is_paid ? (
                 <>
                   <div className="text-center mb-6">
                     {hasDiscount && (
@@ -491,7 +533,10 @@ export default function EventDetailPage() {
                         data-testid="buy-tickets-btn"
                       >
                         <Ticket className="h-4 w-4 mr-2" />
-                        {purchasing ? 'Processing...' : `Buy ${ticketQuantity} Ticket${ticketQuantity > 1 ? 's' : ''}`}
+                        {event.external_url
+                          ? 'Get Tickets'
+                          : (purchasing ? 'Processing...' : `Buy ${ticketQuantity} Ticket${ticketQuantity > 1 ? 's' : ''}`)}
+                        {event.external_url && <ExternalLink className="h-3 w-3 ml-2" />}
                       </Button>
                     </>
                   ) : (
