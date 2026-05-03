@@ -2102,28 +2102,30 @@ async def health():
 # in Render env vars. Useful for manually triggering an ingestion run during
 # the pilot before the daily cron has fired, or after fixing data.
 
-@api_router.post("/admin/ingest")
-async def admin_trigger_ingest(request: Request):
+def _check_admin(request: Request, token_query: Optional[str]):
+    """Validate the admin token from header OR ?token= query param.
+    Query param support makes it easy to test from the Swagger /docs UI."""
     expected = os.environ.get("ADMIN_TOKEN")
     if not expected:
         raise HTTPException(status_code=503, detail="ADMIN_TOKEN not configured")
-    if request.headers.get("X-Admin-Token") != expected:
+    provided = request.headers.get("X-Admin-Token") or token_query
+    if provided != expected:
         raise HTTPException(status_code=401, detail="Invalid admin token")
 
+
+@api_router.post("/admin/ingest")
+async def admin_trigger_ingest(request: Request, token: Optional[str] = None):
+    """Trigger an ingestion run. Pass token via ?token=... or X-Admin-Token header."""
+    _check_admin(request, token)
     from ingestion.runner import run_all
     summary = await run_all()
     return summary
 
 
 @api_router.get("/admin/ingestion-runs")
-async def admin_get_ingestion_runs(request: Request, limit: int = 20):
+async def admin_get_ingestion_runs(request: Request, token: Optional[str] = None, limit: int = 20):
     """Recent ingestion run history for monitoring."""
-    expected = os.environ.get("ADMIN_TOKEN")
-    if not expected:
-        raise HTTPException(status_code=503, detail="ADMIN_TOKEN not configured")
-    if request.headers.get("X-Admin-Token") != expected:
-        raise HTTPException(status_code=401, detail="Invalid admin token")
-
+    _check_admin(request, token)
     runs = await db.ingestion_runs.find({}, {"_id": 0}).sort("started_at", -1).to_list(limit)
     return runs
 
