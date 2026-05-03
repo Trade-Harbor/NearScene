@@ -1,8 +1,9 @@
-# Render deployment config for the NearScene FastAPI backend.
+# Render deployment config for NearScene.
 # Connect this repo to Render → "New +" → "Blueprint" → point at this file.
 # All `sync: false` env vars must be set manually in the Render dashboard
 # (they are secrets and should not be committed to the repo).
 services:
+  # === Web service: the FastAPI backend ===
   - type: web
     name: nearscene-backend
     runtime: python
@@ -30,3 +31,73 @@ services:
         sync: false           # whsec_... from the Stripe dashboard
       - key: PUBLIC_FRONTEND_URL
         sync: false           # e.g. https://nearscene.vercel.app
+      - key: ADMIN_TOKEN
+        generateValue: true   # Used to authenticate /api/admin/* endpoints
+      # Pilot region: Wilmington, NC + 30 mile radius
+      - key: PILOT_LAT
+        value: "34.2257"
+      - key: PILOT_LON
+        value: "-77.9447"
+      - key: PILOT_RADIUS_MILES
+        value: "30"
+      - key: PILOT_CITY
+        value: "Wilmington"
+      - key: PILOT_STATE
+        value: "NC"
+      # Data source API keys (set in dashboard after free signup)
+      - key: TICKETMASTER_API_KEY
+        sync: false           # https://developer.ticketmaster.com
+      - key: SEATGEEK_CLIENT_ID
+        sync: false           # https://seatgeek.com/account/develop
+      - key: YELP_API_KEY
+        sync: false           # https://www.yelp.com/developers
+
+  # === Cron: daily ingestion run ===
+  # Runs `python -m ingestion.runner` every day at 09:00 UTC (~5am ET).
+  # Reuses the same env vars as the web service via fromService reference.
+  - type: cron
+    name: nearscene-ingestion-daily
+    runtime: python
+    plan: free
+    rootDir: backend
+    schedule: "0 9 * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m ingestion.runner
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: MONGO_URL
+        fromService:
+          type: web
+          name: nearscene-backend
+          envVarKey: MONGO_URL
+      - key: DB_NAME
+        fromService:
+          type: web
+          name: nearscene-backend
+          envVarKey: DB_NAME
+      - key: PILOT_LAT
+        value: "34.2257"
+      - key: PILOT_LON
+        value: "-77.9447"
+      - key: PILOT_RADIUS_MILES
+        value: "30"
+      - key: PILOT_CITY
+        value: "Wilmington"
+      - key: PILOT_STATE
+        value: "NC"
+      - key: TICKETMASTER_API_KEY
+        fromService:
+          type: web
+          name: nearscene-backend
+          envVarKey: TICKETMASTER_API_KEY
+      - key: SEATGEEK_CLIENT_ID
+        fromService:
+          type: web
+          name: nearscene-backend
+          envVarKey: SEATGEEK_CLIENT_ID
+      - key: YELP_API_KEY
+        fromService:
+          type: web
+          name: nearscene-backend
+          envVarKey: YELP_API_KEY

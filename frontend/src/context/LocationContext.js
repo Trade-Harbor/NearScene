@@ -10,12 +10,13 @@ export const useLocation = () => {
   return context;
 };
 
-// Default to NYC
+// Default to Wilmington, NC — pilot region. If a user denies geolocation,
+// they still see relevant data instead of NYC events 600 miles away.
 const DEFAULT_LOCATION = {
-  latitude: 40.7128,
-  longitude: -74.006,
-  city: 'New York',
-  state: 'NY'
+  latitude: 34.2257,
+  longitude: -77.9447,
+  city: 'Wilmington',
+  state: 'NC'
 };
 
 export const LocationProvider = ({ children }) => {

@@ -2096,6 +2096,38 @@ async def root():
 async def health():
     return {"status": "healthy"}
 
+
+# ============= ADMIN: INGESTION TRIGGER =============
+# Gate with a simple shared secret in the X-Admin-Token header. Set ADMIN_TOKEN
+# in Render env vars. Useful for manually triggering an ingestion run during
+# the pilot before the daily cron has fired, or after fixing data.
+
+@api_router.post("/admin/ingest")
+async def admin_trigger_ingest(request: Request):
+    expected = os.environ.get("ADMIN_TOKEN")
+    if not expected:
+        raise HTTPException(status_code=503, detail="ADMIN_TOKEN not configured")
+    if request.headers.get("X-Admin-Token") != expected:
+        raise HTTPException(status_code=401, detail="Invalid admin token")
+
+    from ingestion.runner import run_all
+    summary = await run_all()
+    return summary
+
+
+@api_router.get("/admin/ingestion-runs")
+async def admin_get_ingestion_runs(request: Request, limit: int = 20):
+    """Recent ingestion run history for monitoring."""
+    expected = os.environ.get("ADMIN_TOKEN")
+    if not expected:
+        raise HTTPException(status_code=503, detail="ADMIN_TOKEN not configured")
+    if request.headers.get("X-Admin-Token") != expected:
+        raise HTTPException(status_code=401, detail="Invalid admin token")
+
+    runs = await db.ingestion_runs.find({}, {"_id": 0}).sort("started_at", -1).to_list(limit)
+    return runs
+
+
 # Include all routers
 app.include_router(api_router)
 app.include_router(auth_router)
