@@ -45,9 +45,15 @@ class RestaurantResponse(BaseModel):
     mood_tags: List[str] = []
     rating: float = 0.0
     review_count: int = 0
-    is_open_now: bool = False
+    # is_open_now is None when we don't have hours data (e.g. Yelp's free tier
+    # doesn't return hours via search). Frontend hides the open/closed badge
+    # in that case rather than misleadingly saying "Closed".
+    is_open_now: Optional[bool] = None
     distance: Optional[float] = None
     owner_id: Optional[str] = None
+    website: Optional[str] = None
+    source: Optional[str] = None
+    external_url: Optional[str] = None
     created_at: datetime
 
 def check_if_open(hours: dict) -> bool:
@@ -107,7 +113,7 @@ def setup_routes(db, calculate_distance, get_current_user, get_optional_user):
         mood: Optional[str] = Query(None),  # family_friendly, dog_friendly, romantic, etc.
         features: Optional[str] = Query(None),  # outdoor_seating, delivery, etc.
         search: Optional[str] = Query(None),
-        limit: int = Query(50)
+        limit: int = Query(500)
     ):
         query = {}
         
@@ -138,11 +144,20 @@ def setup_routes(db, calculate_distance, get_current_user, get_optional_user):
             
             if isinstance(rest_copy.get("created_at"), str):
                 rest_copy["created_at"] = datetime.fromisoformat(rest_copy["created_at"])
-            
-            # Check if open
-            is_open = check_if_open(rest_copy.get("hours", {}))
-            rest_copy["is_open_now"] = is_open
-            
+
+            # Check if open. None when hours unknown (e.g. Yelp-imported records).
+            hours = rest_copy.get("hours") or {}
+            if hours:
+                is_open = check_if_open(hours)
+                rest_copy["is_open_now"] = is_open
+            else:
+                is_open = None
+                rest_copy["is_open_now"] = None
+
+            # Also surface the source/external_url so the UI can link out to Yelp
+            rest_copy["source"] = rest_copy.get("_source")
+            rest_copy["external_url"] = rest_copy.get("_source_url") or rest_copy.get("website")
+
             if open_now and not is_open:
                 continue
             

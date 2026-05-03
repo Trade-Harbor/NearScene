@@ -81,7 +81,7 @@ export default function RestaurantsPage() {
         latitude: location?.latitude,
         longitude: location?.longitude,
         radius: radius,
-        limit: 50
+        limit: 500   // Bumped from 50 — Yelp ingestion seeds up to 200 restaurants
       };
 
       if (selectedCuisine && selectedCuisine !== 'all') {
@@ -306,23 +306,36 @@ export default function RestaurantsPage() {
 }
 
 function RestaurantCard({ restaurant }) {
+  // Click anywhere on the card to open the source page (Yelp etc) in a new tab.
+  // Buttons inside the card use stopPropagation to not double-trigger.
+  const detailUrl = restaurant.external_url || restaurant.website;
+  const handleCardClick = () => {
+    if (detailUrl) window.open(detailUrl, '_blank', 'noopener,noreferrer');
+  };
+
   return (
-    <Card className="group cursor-pointer overflow-hidden border-0 shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 dark:border dark:border-white/10" data-testid={`restaurant-card-${restaurant.restaurant_id}`}>
+    <Card
+      className="group cursor-pointer overflow-hidden border-0 shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 dark:border dark:border-white/10"
+      data-testid={`restaurant-card-${restaurant.restaurant_id}`}
+      onClick={handleCardClick}
+    >
       <div className="relative h-48 overflow-hidden">
-        <img 
-          src={restaurant.image_url || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800'} 
+        <img
+          src={restaurant.image_url || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800'}
           alt={restaurant.name}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-        
-        {/* Open/Closed Badge */}
-        <div className="absolute top-3 right-3">
-          <Badge variant={restaurant.is_open_now ? "default" : "secondary"} className={restaurant.is_open_now ? "bg-accent" : ""}>
-            {restaurant.is_open_now ? 'Open Now' : 'Closed'}
-          </Badge>
-        </div>
-        
+
+        {/* Open/Closed Badge — only shown when we actually know the hours. */}
+        {restaurant.is_open_now !== null && restaurant.is_open_now !== undefined && (
+          <div className="absolute top-3 right-3">
+            <Badge variant={restaurant.is_open_now ? "default" : "secondary"} className={restaurant.is_open_now ? "bg-accent" : ""}>
+              {restaurant.is_open_now ? 'Open Now' : 'Closed'}
+            </Badge>
+          </div>
+        )}
+
         {/* Price Level */}
         <div className="absolute top-3 left-3">
           <Badge variant="secondary" className="backdrop-blur-sm bg-white/80 dark:bg-black/60">
@@ -375,23 +388,26 @@ function RestaurantCard({ restaurant }) {
         )}
         
         {/* Action Buttons */}
-        <div className="flex gap-2 mt-4 pt-4 border-t border-border">
+        <div className="flex gap-2 mt-4 pt-4 border-t border-border" onClick={(e) => e.stopPropagation()}>
           {restaurant.phone && (
             <Button variant="outline" size="sm" className="flex-1 rounded-full" asChild>
-              <a href={`tel:${restaurant.phone}`}>
+              <a href={`tel:${restaurant.phone}`} onClick={(e) => e.stopPropagation()}>
                 <Phone className="h-3 w-3 mr-1" />
                 Call
               </a>
             </Button>
           )}
-          <Button 
-            variant="default" 
-            size="sm" 
+          <Button
+            variant="default"
+            size="sm"
             className="flex-1 rounded-full"
-            onClick={() => window.open(
-              `https://www.google.com/maps/search/?api=1&query=${restaurant.latitude},${restaurant.longitude}`,
-              '_blank'
-            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              window.open(
+                `https://www.google.com/maps/search/?api=1&query=${restaurant.latitude},${restaurant.longitude}`,
+                '_blank'
+              );
+            }}
           >
             <MapPin className="h-3 w-3 mr-1" />
             Directions
