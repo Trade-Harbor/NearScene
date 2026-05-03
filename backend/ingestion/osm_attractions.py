@@ -54,50 +54,83 @@ OSM_TYPE_MAP = [
 
 
 def _build_query(lat: float, lon: float, radius_m: int) -> str:
-    """Build an Overpass QL query that pulls all attraction-type nodes/ways
-    within the radius. The `out center` clause flattens ways/relations to
-    a single representative point so we get clean lat/lon for every result."""
-    return f"""
-    [out:json][timeout:30];
-    (
-      node(around:{radius_m},{lat},{lon})[leisure~"^(park|garden|nature_reserve)$"];
-      way(around:{radius_m},{lat},{lon})[leisure~"^(park|garden|nature_reserve)$"];
-      node(around:{radius_m},{lat},{lon})[natural=beach];
-      way(around:{radius_m},{lat},{lon})[natural=beach];
-      node(around:{radius_m},{lat},{lon})[tourism~"^(museum|gallery|attraction|viewpoint|zoo|aquarium)$"];
-      way(around:{radius_m},{lat},{lon})[tourism~"^(museum|gallery|attraction|viewpoint|zoo|aquarium)$"];
-      node(around:{radius_m},{lat},{lon})[historic~"^(monument|memorial|ruins|castle)$"];
-      way(around:{radius_m},{lat},{lon})[historic~"^(monument|memorial|ruins|castle)$"];
-      node(around:{radius_m},{lat},{lon})[highway=trailhead];
-    );
-    out center tags;
-    """
+    """Build an Overpass QL query that pulls attraction-type nodes/ways/relations
+    within the radius. Uses simple equality matchers (more reliable than regex
+    in Overpass QL) and `out center;` which includes tags + center coords for
+    ways/relations."""
+    leisure_values = ["park", "garden", "nature_reserve", "playground"]
+    tourism_values = ["museum", "gallery", "attraction", "viewpoint", "zoo", "aquarium", "theme_park"]
+    historic_values = ["monument", "memorial", "ruins", "castle", "fort"]
+
+    parts: List[str] = []
+    around = f"around:{radius_m},{lat},{lon}"
+
+    for v in leisure_values:
+        parts.append(f"  node({around})[leisure={v}];")
+        parts.append(f"  way({around})[leisure={v}];")
+        parts.append(f"  relation({around})[leisure={v}];")
+    parts.append(f"  node({around})[natural=beach];")
+    parts.append(f"  way({around})[natural=beach];")
+    for v in tourism_values:
+        parts.append(f"  node({around})[tourism={v}];")
+        parts.append(f"  way({around})[tourism={v}];")
+        parts.append(f"  relation({around})[tourism={v}];")
+    for v in historic_values:
+        parts.append(f"  node({around})[historic={v}];")
+        parts.append(f"  way({around})[historic={v}];")
+
+    body = "\n".join(parts)
+    return f"""[out:json][timeout:60];
+(
+{body}
+);
+out center;
+"""
 
 
 async def fetch_attractions() -> List[Dict[str, Any]]:
     """Pull attractions in the pilot radius from Overpass."""
     radius_m = int(PILOT_RADIUS_MILES * MILES_TO_METERS)
     query = _build_query(PILOT_LAT, PILOT_LON, radius_m)
+    log.info(
+        f"Overpass query: lat={PILOT_LAT} lon={PILOT_LON} radius_m={radius_m}, "
+        f"query_len={len(query)} chars"
+    )
 
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=90.0) as client:
             resp = await client.post(OVERPASS_URL, data={"data": query})
+            log.info(f"Overpass response: status={resp.status_code} bytes={len(resp.content)}")
             resp.raise_for_status()
             data = resp.json()
     except httpx.HTTPError as e:
         log.error(f"Overpass API error: {e}")
+        return []
+    except ValueError as e:
+        log.error(f"Overpass returned non-JSON response: {e}")
         return []
 
     elements = data.get("elements", [])
     log.info(f"Overpass returned {len(elements)} raw OSM elements")
 
     normalized: List[Dict[str, Any]] = []
+    skipped_no_name = 0
+    skipped_no_coords = 0
     for raw in elements:
         a = _normalize_attraction(raw)
         if a:
             normalized.append(a)
+        else:
+            tags = raw.get("tags") or {}
+            if not tags.get("name"):
+                skipped_no_name += 1
+            else:
+                skipped_no_coords += 1
 
-    log.info(f"OSM normalized {len(normalized)} attractions")
+    log.info(
+        f"OSM normalized {len(normalized)} attractions "
+        f"(skipped {skipped_no_name} unnamed, {skipped_no_coords} no_coords)"
+    )
     return normalized
 
 

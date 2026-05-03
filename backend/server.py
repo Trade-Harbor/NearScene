@@ -2135,6 +2135,20 @@ async def admin_get_ingestion_runs(request: Request, token: Optional[str] = None
     return runs
 
 
+@api_router.get("/admin/test-osm")
+async def admin_test_osm(request: Request, token: Optional[str] = None):
+    """Debug: run only the OSM Overpass fetch and return diagnostics +
+    a sample of records, without touching the database."""
+    _check_admin(request, token)
+    from ingestion import osm_attractions
+    results = await osm_attractions.fetch_attractions()
+    return {
+        "count": len(results),
+        "sample": results[:5],   # First 5 records so we can see the shape
+        "names": [r["name"] for r in results[:30]],
+    }
+
+
 @api_router.get("/admin/data-counts")
 async def admin_data_counts(request: Request, token: Optional[str] = None):
     """Quick diagnostic: counts per collection, broken down by source.
