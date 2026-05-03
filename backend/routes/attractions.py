@@ -187,8 +187,20 @@ def setup_routes(db, calculate_distance, get_current_user, get_optional_user):
             results.sort(key=lambda x: x.get("distance", 999))
         else:
             results.sort(key=lambda x: -x.get("rating", 0))
-        
-        return [AttractionResponse(**r) for r in results[:limit]]
+
+        # Build response items defensively — a single bad record (missing required
+        # field, wrong type) shouldn't blank out the whole list. Log + skip instead.
+        import logging as _logging
+        _log = _logging.getLogger(__name__)
+        responses: List[AttractionResponse] = []
+        for r in results[:limit]:
+            try:
+                responses.append(AttractionResponse(**r))
+            except Exception as e:
+                _log.warning(
+                    f"Skipping invalid attraction {r.get('attraction_id', '?')}: {e}"
+                )
+        return responses
     
     @router.get("/{attraction_id}", response_model=AttractionResponse)
     async def get_attraction(attraction_id: str, latitude: Optional[float] = None, longitude: Optional[float] = None):

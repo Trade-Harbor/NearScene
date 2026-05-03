@@ -2135,6 +2135,25 @@ async def admin_get_ingestion_runs(request: Request, token: Optional[str] = None
     return runs
 
 
+@api_router.get("/admin/data-counts")
+async def admin_data_counts(request: Request, token: Optional[str] = None):
+    """Quick diagnostic: counts per collection, broken down by source.
+    Useful to confirm OSM/Yelp/Ticketmaster ingestion actually wrote records."""
+    _check_admin(request, token)
+    collections = ["events", "restaurants", "food_trucks", "attractions", "ingestion_runs"]
+    out: Dict[str, Any] = {}
+    for col in collections:
+        total = await db[col].count_documents({})
+        by_source: Dict[str, int] = {}
+        async for r in db[col].aggregate([
+            {"$group": {"_id": "$_source", "count": {"$sum": 1}}}
+        ]):
+            label = r["_id"] or "user_submitted"
+            by_source[label] = r["count"]
+        out[col] = {"total": total, "by_source": by_source}
+    return out
+
+
 @api_router.post("/admin/reset-external")
 async def admin_reset_external(request: Request, token: Optional[str] = None):
     """Wipe all externally-ingested records (events, restaurants, attractions)
@@ -2144,10 +2163,12 @@ async def admin_reset_external(request: Request, token: Optional[str] = None):
     events_result = await db.events.delete_many({"_source": {"$exists": True}})
     restaurants_result = await db.restaurants.delete_many({"_source": {"$exists": True}})
     attractions_result = await db.attractions.delete_many({"_source": {"$exists": True}})
+    food_trucks_result = await db.food_trucks.delete_many({"_source": {"$exists": True}})
     return {
         "events_deleted": events_result.deleted_count,
         "restaurants_deleted": restaurants_result.deleted_count,
         "attractions_deleted": attractions_result.deleted_count,
+        "food_trucks_deleted": food_trucks_result.deleted_count,
     }
 
 

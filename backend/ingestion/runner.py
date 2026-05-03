@@ -90,28 +90,34 @@ async def ingest_events(db) -> Dict[str, int]:
     return {"inserted": inserted, "skipped": skipped, "total_candidates": len(candidates)}
 
 
-async def ingest_restaurants(db) -> Dict[str, int]:
-    """Pull restaurants from Yelp, dedupe, and upsert."""
-    candidates = await yelp.fetch_restaurants()
-    log.info(f"Restaurant candidates: {len(candidates)}")
+async def ingest_yelp(db) -> Dict[str, Dict[str, int]]:
+    """Pull from Yelp once, route businesses to restaurants vs. food_trucks
+    based on Yelp's category aliases, dedupe both collections."""
+    split = await yelp.fetch_all()
+    restaurants_candidates = split["restaurants"]
+    food_trucks_candidates = split["food_trucks"]
+    log.info(
+        f"Yelp candidates: restaurants={len(restaurants_candidates)} "
+        f"food_trucks={len(food_trucks_candidates)}"
+    )
 
-    existing_keys = set()
-    async for doc in db.restaurants.find(
-        {"_dedup_key": {"$exists": True}},
-        {"_dedup_key": 1, "_id": 0},
-    ):
-        existing_keys.add(doc["_dedup_key"])
-
-    inserted = 0
-    skipped = 0
     now_iso = datetime.now(timezone.utc).isoformat()
+    now_dt = datetime.now(timezone.utc).isoformat()
 
-    for r in candidates:
+    # === Restaurants ===
+    existing_rest_keys = set()
+    async for doc in db.restaurants.find(
+        {"_dedup_key": {"$exists": True}}, {"_dedup_key": 1, "_id": 0}
+    ):
+        existing_rest_keys.add(doc["_dedup_key"])
+
+    rest_inserted = 0
+    rest_skipped = 0
+    for r in restaurants_candidates:
         key = business_dedup_key(r["name"], r["address"])
-        if key in existing_keys:
-            skipped += 1
+        if key in existing_rest_keys:
+            rest_skipped += 1
             continue
-
         restaurant_id = f"restaurant_{uuid.uuid4().hex[:12]}"
         doc = {
             "restaurant_id": restaurant_id,
@@ -123,10 +129,52 @@ async def ingest_restaurants(db) -> Dict[str, int]:
             "_dedup_key": key,
         }
         await db.restaurants.insert_one(doc)
-        inserted += 1
+        rest_inserted += 1
 
-    log.info(f"Restaurants: inserted={inserted}, skipped_duplicate={skipped}")
-    return {"inserted": inserted, "skipped": skipped, "total_candidates": len(candidates)}
+    # === Food trucks ===
+    existing_ft_keys = set()
+    async for doc in db.food_trucks.find(
+        {"_dedup_key": {"$exists": True}}, {"_dedup_key": 1, "_id": 0}
+    ):
+        existing_ft_keys.add(doc["_dedup_key"])
+
+    ft_inserted = 0
+    ft_skipped = 0
+    for ft in food_trucks_candidates:
+        key = business_dedup_key(ft["name"], ft["address"])
+        if key in existing_ft_keys:
+            ft_skipped += 1
+            continue
+        truck_id = f"truck_{uuid.uuid4().hex[:12]}"
+        doc = {
+            "truck_id": truck_id,
+            **ft,
+            "owner_id": f"source_{ft['_source']}",
+            "owner_name": "Yelp",
+            "is_active_today": True,
+            "last_updated": now_dt,
+            "created_at": now_iso,
+            "_dedup_key": key,
+        }
+        await db.food_trucks.insert_one(doc)
+        ft_inserted += 1
+
+    log.info(
+        f"Yelp ingest done: restaurants inserted={rest_inserted} skipped={rest_skipped}; "
+        f"food_trucks inserted={ft_inserted} skipped={ft_skipped}"
+    )
+    return {
+        "restaurants": {
+            "inserted": rest_inserted,
+            "skipped": rest_skipped,
+            "total_candidates": len(restaurants_candidates),
+        },
+        "food_trucks": {
+            "inserted": ft_inserted,
+            "skipped": ft_skipped,
+            "total_candidates": len(food_trucks_candidates),
+        },
+    }
 
 
 async def ingest_attractions(db) -> Dict[str, int]:
@@ -175,7 +223,7 @@ async def run_all() -> Dict[str, Any]:
     started = datetime.now(timezone.utc)
 
     events_result = await ingest_events(db)
-    restaurants_result = await ingest_restaurants(db)
+    yelp_result = await ingest_yelp(db)              # restaurants + food trucks
     attractions_result = await ingest_attractions(db)
 
     finished = datetime.now(timezone.utc)
@@ -186,7 +234,8 @@ async def run_all() -> Dict[str, Any]:
         "finished_at": finished.isoformat(),
         "duration_seconds": round(duration, 1),
         "events": events_result,
-        "restaurants": restaurants_result,
+        "restaurants": yelp_result["restaurants"],
+        "food_trucks": yelp_result["food_trucks"],
         "attractions": attractions_result,
     }
 
