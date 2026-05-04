@@ -376,16 +376,16 @@ async def debug_full_fetch() -> Dict[str, Any]:
                 if len(businesses) < PER_PAGE:
                     break
 
-        chain_tasks = [
-            client.get(API_BASE, params={
-                "term": term, "latitude": PILOT_LAT, "longitude": PILOT_LON,
-                "radius": radius_m, "limit": 5,
-            }, headers=headers)
-            for term in CHAIN_SEARCH_TERMS
-        ]
-        chain_responses = await asyncio.gather(*chain_tasks, return_exceptions=True)
-        for term, resp in zip(CHAIN_SEARCH_TERMS, chain_responses):
-            if isinstance(resp, Exception) or resp.status_code != 200:
+        # Sequential to match production code path (parallel hits rate limit)
+        for term in CHAIN_SEARCH_TERMS:
+            try:
+                resp = await client.get(API_BASE, params={
+                    "term": term, "latitude": PILOT_LAT, "longitude": PILOT_LON,
+                    "radius": radius_m, "limit": 5,
+                }, headers=headers)
+            except httpx.HTTPError:
+                continue
+            if resp.status_code != 200:
                 continue
             businesses = resp.json().get("businesses", [])
             matches = [b for b in businesses
@@ -462,35 +462,32 @@ async def _fetch_restaurants_raw() -> List[Dict[str, Any]]:
                     if len(businesses) < PER_PAGE:
                         break
 
-            # Pass 3: explicit chain searches in parallel — one query per known
-            # chain name. Limit 5 covers cases where a metro has multiple of
-            # the same chain (e.g. multiple McDonald's locations).
-            chain_tasks = [
-                client.get(
-                    API_BASE,
-                    params={
-                        "term": term,
-                        "latitude": PILOT_LAT,
-                        "longitude": PILOT_LON,
-                        "radius": radius_m,
-                        "limit": 5,
-                    },
-                    headers=headers,
-                )
-                for term in CHAIN_SEARCH_TERMS
-            ]
-            chain_responses = await asyncio.gather(*chain_tasks, return_exceptions=True)
+            # Pass 3: explicit chain searches — one query per known chain name.
+            # Run SEQUENTIALLY (not asyncio.gather) because Yelp rate-limits
+            # parallel bursts: testing showed 30 parallel calls returned 7
+            # results vs. 70 when sequential. ~30 calls × 300ms = ~9s overhead,
+            # well within the request timeout.
             chain_count = 0
-            for term, resp in zip(CHAIN_SEARCH_TERMS, chain_responses):
-                if isinstance(resp, Exception):
-                    log.warning(f"Chain search '{term}' failed: {resp}")
+            for term in CHAIN_SEARCH_TERMS:
+                try:
+                    resp = await client.get(
+                        API_BASE,
+                        params={
+                            "term": term,
+                            "latitude": PILOT_LAT,
+                            "longitude": PILOT_LON,
+                            "radius": radius_m,
+                            "limit": 5,
+                        },
+                        headers=headers,
+                    )
+                except httpx.HTTPError as e:
+                    log.warning(f"Chain search '{term}' failed: {e}")
                     continue
                 if resp.status_code != 200:
+                    log.warning(f"Chain search '{term}' status {resp.status_code}")
                     continue
                 businesses = resp.json().get("businesses", [])
-                # Filter to results whose name actually matches the chain.
-                # Token-based fuzzy match handles punctuation/apostrophe
-                # differences (Chick-fil-A vs Chick fil A, McDonald's vs McDonalds).
                 matches = [b for b in businesses
                            if _name_matches_search_term(b.get("name"), term)]
                 all_businesses.extend(matches)
