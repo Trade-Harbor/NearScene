@@ -706,7 +706,7 @@ async def create_food_truck(truck_data: FoodTruckCreate, user = Depends(get_curr
         "last_updated": datetime.now(timezone.utc).isoformat()
     }
     
-    await db.foodtrucks.insert_one(truck_doc)
+    await db.food_trucks.insert_one(truck_doc)
     
     return FoodTruckResponse(**{
         **truck_doc,
@@ -729,7 +729,7 @@ async def get_food_trucks(
     if active_only:
         query["is_active_today"] = True
     
-    trucks = await db.foodtrucks.find(query, {"_id": 0}).to_list(100)
+    trucks = await db.food_trucks.find(query, {"_id": 0}).to_list(500)
     
     results = []
     for truck in trucks:
@@ -757,7 +757,7 @@ async def get_food_trucks(
 
 @foodtrucks_router.get("/{truck_id}", response_model=FoodTruckResponse)
 async def get_food_truck(truck_id: str):
-    truck = await db.foodtrucks.find_one({"truck_id": truck_id}, {"_id": 0})
+    truck = await db.food_trucks.find_one({"truck_id": truck_id}, {"_id": 0})
     if not truck:
         raise HTTPException(status_code=404, detail="Food truck not found")
     
@@ -774,14 +774,14 @@ async def update_food_truck_location(
     address: str,
     user = Depends(get_current_user)
 ):
-    truck = await db.foodtrucks.find_one({"truck_id": truck_id}, {"_id": 0})
+    truck = await db.food_trucks.find_one({"truck_id": truck_id}, {"_id": 0})
     if not truck:
         raise HTTPException(status_code=404, detail="Food truck not found")
     
     if truck["owner_id"] != user["user_id"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    await db.foodtrucks.update_one(
+    await db.food_trucks.update_one(
         {"truck_id": truck_id},
         {"$set": {
             "latitude": latitude,
@@ -795,14 +795,14 @@ async def update_food_truck_location(
 
 @foodtrucks_router.put("/{truck_id}/status")
 async def toggle_food_truck_status(truck_id: str, is_active: bool, user = Depends(get_current_user)):
-    truck = await db.foodtrucks.find_one({"truck_id": truck_id}, {"_id": 0})
+    truck = await db.food_trucks.find_one({"truck_id": truck_id}, {"_id": 0})
     if not truck:
         raise HTTPException(status_code=404, detail="Food truck not found")
     
     if truck["owner_id"] != user["user_id"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    await db.foodtrucks.update_one(
+    await db.food_trucks.update_one(
         {"truck_id": truck_id},
         {"$set": {"is_active_today": is_active, "last_updated": datetime.now(timezone.utc).isoformat()}}
     )
@@ -822,7 +822,7 @@ async def create_comment(
     if target_type == "event":
         target = await db.events.find_one({"event_id": target_id}, {"_id": 0})
     elif target_type == "foodtruck":
-        target = await db.foodtrucks.find_one({"truck_id": target_id}, {"_id": 0})
+        target = await db.food_trucks.find_one({"truck_id": target_id}, {"_id": 0})
     else:
         raise HTTPException(status_code=400, detail="Invalid target type")
     
@@ -854,7 +854,7 @@ async def create_comment(
         
         if comments:
             avg_rating = sum(c["rating"] for c in comments) / len(comments)
-            await db.foodtrucks.update_one(
+            await db.food_trucks.update_one(
                 {"truck_id": target_id},
                 {"$set": {"rating": round(avg_rating, 1), "review_count": len(comments)}}
             )
@@ -1666,7 +1666,7 @@ async def seed_data():
     ]
     
     await db.events.insert_many(sample_events)
-    await db.foodtrucks.insert_many(sample_trucks)
+    await db.food_trucks.insert_many(sample_trucks)
     
     # Sample Restaurants
     sample_restaurants = [
@@ -2161,6 +2161,21 @@ async def admin_data_counts(request: Request, token: Optional[str] = None):
             label = r["_id"] or "user_submitted"
             by_source[label] = r["count"]
         out[col] = {"total": total, "by_source": by_source}
+
+    # Chain breakdown for restaurants — sanity-check the chain ingestion
+    chain_count = await db.restaurants.count_documents({"is_chain": True})
+    independent_count = await db.restaurants.count_documents(
+        {"$or": [{"is_chain": False}, {"is_chain": {"$exists": False}}]}
+    )
+    out["restaurants"]["chains"] = chain_count
+    out["restaurants"]["independents"] = independent_count
+
+    # Sample chain names so we can see WHAT got tagged as chains
+    chain_sample = await db.restaurants.find(
+        {"is_chain": True}, {"_id": 0, "name": 1}
+    ).limit(30).to_list(30)
+    out["restaurants"]["chain_sample"] = [r["name"] for r in chain_sample]
+
     return out
 
 
