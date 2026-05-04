@@ -17,6 +17,7 @@ Each restaurant carries an `is_chain` flag set by name-matching against a
 hand-maintained list of major US chain brands. Frontend can use this to
 toggle chains on/off in the listing.
 """
+import asyncio
 import logging
 import os
 from datetime import datetime, timedelta, timezone
@@ -79,6 +80,47 @@ def _name_is_chain(name: str) -> bool:
     """Return True if the business name matches a known US chain brand."""
     n = (name or "").lower()
     return any(brand in n for brand in CHAIN_NAMES)
+
+
+# Curated list of popular US chains to search for explicitly. Yelp's best_match
+# sort biases toward local independents — chains like BWW, Olive Garden, etc.
+# usually don't crack the top 200 even though they exist within radius.
+# A targeted search by name reliably surfaces them.
+#
+# Keep this list focused (~25 entries) — each entry is one extra Yelp API call.
+# We're at ~10 calls/run today; adding 25 puts us at 35/day vs. 5000 budget.
+CHAIN_SEARCH_TERMS = [
+    "Buffalo Wild Wings",
+    "Olive Garden",
+    "Outback Steakhouse",
+    "Texas Roadhouse",
+    "Applebee's",
+    "Chili's",
+    "Cracker Barrel",
+    "IHOP",
+    "Denny's",
+    "Cheesecake Factory",
+    "Red Lobster",
+    "Longhorn Steakhouse",
+    "P.F. Chang's",
+    "Panda Express",
+    "Chipotle",
+    "Taco Bell",
+    "Chick-fil-A",
+    "Popeyes",
+    "Bojangles",
+    "Zaxby's",
+    "Raising Cane's",
+    "McDonald's",
+    "Wendy's",
+    "Burger King",
+    "Five Guys",
+    "Panera Bread",
+    "First Watch",
+    "Cracker Barrel",
+    "Hooters",
+    "Waffle House",
+]
 
 
 def _is_farmers_market(raw: Dict[str, Any]) -> bool:
@@ -214,7 +256,15 @@ def _normalize_market_event(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 
 async def _fetch_restaurants_raw() -> List[Dict[str, Any]]:
-    """Inner helper: returns raw deduped Yelp business dicts before normalization."""
+    """Inner helper: returns raw deduped Yelp business dicts before normalization.
+
+    Three query passes, all merged + deduped by Yelp business ID:
+      1. sort_by=rating       → high-quality independents
+      2. sort_by=best_match   → Yelp's relevance ranking
+      3. term=<chain name>    → one query per known US chain brand to make
+                                 sure popular chains aren't dropped by 1+2's
+                                 ranking algorithms
+    """
     api_key = os.environ.get("YELP_API_KEY")
     if not api_key:
         log.warning("YELP_API_KEY not set; skipping Yelp ingestion")
@@ -226,7 +276,7 @@ async def _fetch_restaurants_raw() -> List[Dict[str, Any]]:
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            # Two sort orders: rating (top locals) + best_match (popularity, surfaces chains)
+            # Pass 1+2: rating + best_match sorts (4 pages each)
             for sort_order in ("rating", "best_match"):
                 for page in range(PAGES_TO_FETCH):
                     params = {
@@ -244,18 +294,55 @@ async def _fetch_restaurants_raw() -> List[Dict[str, Any]]:
                     businesses = data.get("businesses", [])
                     all_businesses.extend(businesses)
                     if len(businesses) < PER_PAGE:
-                        break  # No more results in this sort order
+                        break
+
+            # Pass 3: explicit chain searches in parallel — one query per known
+            # chain name. Limit 5 covers cases where a metro has multiple of
+            # the same chain (e.g. multiple McDonald's locations).
+            chain_tasks = [
+                client.get(
+                    API_BASE,
+                    params={
+                        "term": term,
+                        "latitude": PILOT_LAT,
+                        "longitude": PILOT_LON,
+                        "radius": radius_m,
+                        "limit": 5,
+                    },
+                    headers=headers,
+                )
+                for term in CHAIN_SEARCH_TERMS
+            ]
+            chain_responses = await asyncio.gather(*chain_tasks, return_exceptions=True)
+            chain_count = 0
+            for term, resp in zip(CHAIN_SEARCH_TERMS, chain_responses):
+                if isinstance(resp, Exception):
+                    log.warning(f"Chain search '{term}' failed: {resp}")
+                    continue
+                if resp.status_code != 200:
+                    continue
+                businesses = resp.json().get("businesses", [])
+                # Filter to results whose name actually matches the chain.
+                # Yelp's term search can return tangential results (e.g.
+                # 'Five Guys' query might return 'The Five Guys Bar').
+                term_lower = term.lower()
+                matches = [b for b in businesses
+                           if term_lower in (b.get("name") or "").lower()]
+                all_businesses.extend(matches)
+                chain_count += len(matches)
+            log.info(f"Yelp explicit chain search added {chain_count} chain businesses")
+
     except httpx.HTTPError as e:
         log.error(f"Yelp API error: {e}")
         return []
 
-    # Dedupe by Yelp ID so businesses appearing in both sort orders count once.
+    # Dedupe by Yelp ID — businesses can appear in multiple passes.
     by_id: Dict[str, Dict[str, Any]] = {}
     for raw in all_businesses:
         bid = raw.get("id")
         if bid and bid not in by_id:
             by_id[bid] = raw
-    log.info(f"Yelp returned {len(all_businesses)} raw rows, {len(by_id)} unique businesses")
+    log.info(f"Yelp total {len(all_businesses)} raw rows, {len(by_id)} unique businesses")
     return list(by_id.values())
 
 
