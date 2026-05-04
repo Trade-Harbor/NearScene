@@ -14,6 +14,7 @@ import FoodTrucksPage from "./pages/FoodTrucksPage";
 import RestaurantsPage from "./pages/RestaurantsPage";
 import RestaurantDetailPage from "./pages/RestaurantDetailPage";
 import AttractionsPage from "./pages/AttractionsPage";
+import AttractionDetailPage from "./pages/AttractionDetailPage";
 import CommunityPage from "./pages/CommunityPage";
 import CreateEventPage from "./pages/CreateEventPage";
 import DashboardPage from "./pages/DashboardPage";
@@ -41,6 +42,7 @@ function AppRouter() {
               <Route path="/restaurants" element={<RestaurantsPage />} />
               <Route path="/restaurants/:restaurantId" element={<RestaurantDetailPage />} />
               <Route path="/attractions" element={<AttractionsPage />} />
+              <Route path="/attractions/:attractionId" element={<AttractionDetailPage />} />
               <Route path="/community" element={<CommunityPage />} />
               <Route path="/pricing" element={<PricingPage />} />
               <Route path="/flash-deals" element={<FlashDealsPage />} />

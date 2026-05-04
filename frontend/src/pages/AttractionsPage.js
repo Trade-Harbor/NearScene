@@ -310,6 +310,7 @@ export default function AttractionsPage() {
 }
 
 function AttractionCard({ attraction }) {
+  const navigate = useNavigate();
   const typeIcons = {
     park: TreePine,
     hiking_trail: Mountain,
@@ -319,20 +320,24 @@ function AttractionCard({ attraction }) {
     garden: TreePine,
     historic_site: Landmark,
   };
-  
+
   const TypeIcon = typeIcons[attraction.attraction_type] || Map;
   const difficultyLevel = DIFFICULTY_LEVELS.find(d => d.value === attraction.difficulty_level);
 
   return (
-    <Card className="group cursor-pointer overflow-hidden border-0 shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 dark:border dark:border-white/10" data-testid={`attraction-card-${attraction.attraction_id}`}>
+    <Card
+      className="group cursor-pointer overflow-hidden border-0 shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 dark:border dark:border-white/10"
+      data-testid={`attraction-card-${attraction.attraction_id}`}
+      onClick={() => navigate(`/attractions/${attraction.attraction_id}`)}
+    >
       <div className="relative h-52 overflow-hidden">
-        <img 
-          src={attraction.image_url || 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800'} 
+        <img
+          src={attraction.image_url || 'https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=800'}
           alt={attraction.name}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-        
+
         {/* Type Badge */}
         <div className="absolute top-3 left-3">
           <Badge variant="secondary" className="backdrop-blur-sm bg-white/80 dark:bg-black/60 gap-1">
@@ -340,13 +345,13 @@ function AttractionCard({ attraction }) {
             {attraction.attraction_type.replace('_', ' ')}
           </Badge>
         </div>
-        
-        {/* Free Badge */}
-        {attraction.is_free && (
-          <div className="absolute top-3 right-3">
-            <Badge className="bg-accent">Free</Badge>
-          </div>
-        )}
+
+        {/* Admission Badge — three-state: free, paid, unknown */}
+        <div className="absolute top-3 right-3">
+          {attraction.is_free === true && <Badge className="bg-accent">Free</Badge>}
+          {attraction.is_free === false && <Badge variant="secondary">Admission</Badge>}
+          {/* Unknown → no badge to avoid misinforming */}
+        </div>
         
         {/* Difficulty Badge for Trails */}
         {difficultyLevel && (
@@ -421,14 +426,17 @@ function AttractionCard({ attraction }) {
         )}
         
         {/* Action */}
-        <Button 
-          variant="default" 
-          size="sm" 
+        <Button
+          variant="default"
+          size="sm"
           className="w-full mt-4 rounded-full"
-          onClick={() => window.open(
-            `https://www.google.com/maps/search/?api=1&query=${attraction.latitude},${attraction.longitude}`,
-            '_blank'
-          )}
+          onClick={(e) => {
+            e.stopPropagation();
+            window.open(
+              `https://www.google.com/maps/search/?api=1&query=${attraction.latitude},${attraction.longitude}`,
+              '_blank'
+            );
+          }}
         >
           <MapPin className="h-4 w-4 mr-2" />
           Get Directions

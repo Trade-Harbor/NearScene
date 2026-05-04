@@ -43,7 +43,9 @@ class AttractionResponse(BaseModel):
     image_url: Optional[str] = None
     hours: Optional[dict] = None
     admission_fee: Optional[float] = None
-    is_free: bool = True
+    # None when admission is unknown (most OSM-imported records). Frontend
+    # shows "Admission varies" instead of "Free" in that case.
+    is_free: Optional[bool] = None
     difficulty_level: Optional[str] = None
     trail_length: Optional[float] = None
     estimated_duration: Optional[str] = None
@@ -55,6 +57,9 @@ class AttractionResponse(BaseModel):
     review_count: int = 0
     is_open_now: bool = True
     distance: Optional[float] = None
+    website: Optional[str] = None
+    source: Optional[str] = None
+    external_url: Optional[str] = None
     created_at: datetime
 
 def check_if_open(hours: Optional[dict]) -> bool:
@@ -165,9 +170,13 @@ def setup_routes(db, calculate_distance, get_current_user, get_optional_user):
             
             if isinstance(attr_copy.get("created_at"), str):
                 attr_copy["created_at"] = datetime.fromisoformat(attr_copy["created_at"])
-            
+
             is_open = check_if_open(attr_copy.get("hours"))
             attr_copy["is_open_now"] = is_open
+
+            # Surface source + external_url for the detail page UI
+            attr_copy["source"] = attr_copy.get("_source")
+            attr_copy["external_url"] = attr_copy.get("external_url") or attr_copy.get("_source_url")
             
             if open_now and not is_open:
                 continue
@@ -207,17 +216,19 @@ def setup_routes(db, calculate_distance, get_current_user, get_optional_user):
         attr = await db.attractions.find_one({"attraction_id": attraction_id}, {"_id": 0})
         if not attr:
             raise HTTPException(status_code=404, detail="Attraction not found")
-        
+
         if isinstance(attr.get("created_at"), str):
             attr["created_at"] = datetime.fromisoformat(attr["created_at"])
-        
+
         attr["is_open_now"] = check_if_open(attr.get("hours"))
-        
+        attr["source"] = attr.get("_source")
+        attr["external_url"] = attr.get("external_url") or attr.get("_source_url")
+
         if latitude and longitude:
             attr["distance"] = round(calculate_distance(
                 latitude, longitude, attr["latitude"], attr["longitude"]
             ), 1)
-        
+
         return AttractionResponse(**attr)
     
     return router

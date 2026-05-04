@@ -32,6 +32,22 @@ OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 
 MILES_TO_METERS = 1609.34
 
+# Per-attraction-type stock images. Used when OSM doesn't give us a real photo
+# (which is most of the time — OSM doesn't host images). Curated free-to-use
+# Unsplash photos that match the kind of place. Picked one per type so the
+# Explore page doesn't show 300 copies of the same forest.
+TYPE_STOCK_IMAGES = {
+    "park":          "https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800",   # green park, picnic
+    "beach":         "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800",   # ocean beach
+    "museum":        "https://images.unsplash.com/photo-1565060169187-eef72ce29e0d?w=800",   # museum interior
+    "landmark":      "https://images.unsplash.com/photo-1549893072-4bc678117f45?w=800",      # historic monument
+    "hiking_trail":  "https://images.unsplash.com/photo-1551632811-561732d1e306?w=800",      # forest trail
+    "attraction":    "https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=800",   # generic destination
+    "garden":        "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=800",   # botanical garden
+    "playground":    "https://images.unsplash.com/photo-1551966775-a4ddc8df052b?w=800",      # playground
+}
+DEFAULT_STOCK_IMAGE = TYPE_STOCK_IMAGES["attraction"]
+
 # Map OSM tags to NearScene attraction_type. Order matters — first match wins.
 OSM_TYPE_MAP = [
     # (key, value, attraction_type, default_amenities, mood_tags, default_image)
@@ -241,6 +257,26 @@ def _normalize_attraction(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     osm_id = f"{raw.get('type', 'node')}/{raw.get('id')}"
     osm_url = f"https://www.openstreetmap.org/{osm_id}"
 
+    # is_free heuristic from OSM tags. We can't always know, so use:
+    #   - explicit `fee=yes`         → not free
+    #   - explicit `fee=no`          → free
+    #   - has admission/charge tag   → not free
+    #   - parks/beaches without tags → assume free (very high signal in OSM)
+    #   - museums without tags       → unknown (None) — most charge admission
+    fee_tag = (tags.get("fee") or "").lower()
+    has_charge = bool(tags.get("charge") or tags.get("admission"))
+    if fee_tag == "yes" or has_charge:
+        is_free: Optional[bool] = False
+    elif fee_tag == "no":
+        is_free = True
+    elif attraction_type in ("park", "beach", "playground"):
+        is_free = True
+    else:
+        is_free = None  # Unknown — UI will show "Admission varies" instead of "Free"
+
+    # Pick a type-appropriate stock photo so the Explore grid isn't 300 forests
+    image_url = TYPE_STOCK_IMAGES.get(attraction_type, DEFAULT_STOCK_IMAGE)
+
     return {
         "name": name,
         "description": description,
@@ -251,10 +287,10 @@ def _normalize_attraction(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "zip_code": zip_code,
         "latitude": float(lat),
         "longitude": float(lon),
-        "image_url": None,                # OSM doesn't host images
+        "image_url": image_url,
         "hours": {"text": opening_hours} if opening_hours else None,
         "admission_fee": None,
-        "is_free": True,                  # Public OSM-listed places are virtually all free
+        "is_free": is_free,
         "difficulty_level": None,
         "trail_length": None,
         "estimated_duration": None,
