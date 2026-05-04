@@ -67,12 +67,14 @@ export default function RestaurantsPage() {
   const [selectedPrice, setSelectedPrice] = useState(null);
   const [selectedMood, setSelectedMood] = useState(null);
   const [openNow, setOpenNow] = useState(false);
+  // Chains filter: 'show' = everything, 'hide' = independents only, 'only' = chains only
+  const [chains, setChains] = useState('show');
   const [showFilters, setShowFilters] = useState(false);
   const [localRadius, setLocalRadius] = useState(radius);
 
   useEffect(() => {
     fetchRestaurants();
-  }, [location, radius, selectedCuisine, selectedPrice, selectedMood, openNow]);
+  }, [location, radius, selectedCuisine, selectedPrice, selectedMood, openNow, chains]);
 
   const fetchRestaurants = async () => {
     setLoading(true);
@@ -81,7 +83,8 @@ export default function RestaurantsPage() {
         latitude: location?.latitude,
         longitude: location?.longitude,
         radius: radius,
-        limit: 500   // Bumped from 50 — Yelp ingestion seeds up to 200 restaurants
+        limit: 500,   // Bumped from 50 — Yelp ingestion seeds up to 200 restaurants
+        chains,
       };
 
       if (selectedCuisine && selectedCuisine !== 'all') {
@@ -120,6 +123,7 @@ export default function RestaurantsPage() {
     setSelectedPrice(null);
     setSelectedMood(null);
     setOpenNow(false);
+    setChains('show');
   };
 
   const applyRadius = () => {
@@ -202,6 +206,18 @@ export default function RestaurantsPage() {
               Open Now
             </Button>
 
+            {/* Chains toggle: 3-state pill (Show all / Independents / Chains only) */}
+            <Select value={chains} onValueChange={setChains}>
+              <SelectTrigger className="w-[140px] rounded-full" data-testid="chains-select">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="show">All restaurants</SelectItem>
+                <SelectItem value="hide">Independents only</SelectItem>
+                <SelectItem value="only">Chains only</SelectItem>
+              </SelectContent>
+            </Select>
+
             {/* Mood Filters */}
             <Button
               variant="outline"
@@ -214,7 +230,7 @@ export default function RestaurantsPage() {
             </Button>
 
             {/* Clear */}
-            {(selectedCuisine !== 'all' || selectedPrice || selectedMood || openNow) && (
+            {(selectedCuisine !== 'all' || selectedPrice || selectedMood || openNow || chains !== 'show') && (
               <Button
                 variant="ghost"
                 onClick={clearFilters}

@@ -54,6 +54,8 @@ class RestaurantResponse(BaseModel):
     website: Optional[str] = None
     source: Optional[str] = None
     external_url: Optional[str] = None
+    is_chain: bool = False
+    tags: List[str] = []
     created_at: datetime
 
 def check_if_open(hours: dict) -> bool:
@@ -113,9 +115,16 @@ def setup_routes(db, calculate_distance, get_current_user, get_optional_user):
         mood: Optional[str] = Query(None),  # family_friendly, dog_friendly, romantic, etc.
         features: Optional[str] = Query(None),  # outdoor_seating, delivery, etc.
         search: Optional[str] = Query(None),
+        # Chains filter: "show" (default) returns everything, "hide" filters them out,
+        # "only" returns only chains.
+        chains: str = Query("show"),
         limit: int = Query(500)
     ):
-        query = {}
+        query: dict = {}
+        if chains == "hide":
+            query["is_chain"] = {"$ne": True}
+        elif chains == "only":
+            query["is_chain"] = True
         
         if cuisine:
             query["cuisine_type"] = {"$regex": cuisine, "$options": "i"}

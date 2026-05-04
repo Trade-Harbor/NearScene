@@ -30,7 +30,7 @@ const CATEGORIES = [
   { name: 'market', label: 'Markets', icon: ShoppingBag, color: 'bg-emerald-500' },
   { name: 'happy_hour', label: 'Happy Hours', icon: Wine, color: 'bg-amber-500' },
   { name: 'garage_sale', label: 'Garage Sales', icon: Tag, color: 'bg-pink-500' },
-  { name: 'food_festival', label: 'Food', icon: Truck, color: 'bg-red-500' },
+  { name: 'food_festival', label: 'Food Festivals', icon: Truck, color: 'bg-red-500' },
   { name: 'community', label: 'Community', icon: Users, color: 'bg-blue-500' },
 ];
 

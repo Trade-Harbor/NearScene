@@ -1,24 +1,91 @@
-"""Yelp Fusion API ingester for restaurants/bars/food trucks.
+"""Yelp Fusion API ingester for restaurants/bars/food trucks/farmers markets.
 
 Docs: https://docs.developer.yelp.com/docs/fusion-intro
 Free tier: 5,000 calls/day. Get a key at https://www.yelp.com/developers (instant signup).
 Set env var: YELP_API_KEY
 
-Returns TWO lists from `fetch_all()`: (restaurants, food_trucks). Yelp tags
-real food trucks with the category alias `foodtrucks`; we route those into
-the food_trucks collection rather than restaurants so the user-facing
-"Food Trucks" page matches what people expect.
+`fetch_all()` returns FOUR lists keyed by destination collection:
+  - restaurants     → /api/restaurants
+  - food_trucks     → /api/foodtrucks (Yelp `foodtrucks` category alias)
+  - market_events   → /api/events (with category='market'; Yelp `farmersmarket`
+                      alias gets converted to a recurring weekly event)
 
-Restaurants pull uses dual sort orders (rating + best_match) and dedupes
+Restaurant pull uses dual sort orders (rating + best_match) and dedupes
 by Yelp business ID so we capture both top-rated locals and popular places.
+
+Each restaurant carries an `is_chain` flag set by name-matching against a
+hand-maintained list of major US chain brands. Frontend can use this to
+toggle chains on/off in the listing.
 """
 import logging
 import os
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional
 
 import httpx
 
-from .utils import PILOT_LAT, PILOT_LON, PILOT_RADIUS_MILES
+from .utils import PILOT_LAT, PILOT_LON, PILOT_RADIUS_MILES, to_iso
+
+
+# Hand-maintained list of common US chain brands. Yelp doesn't expose
+# chain affiliation directly, so we name-match (case-insensitive substring).
+# Ordered roughly by likelihood of appearing in a US metro.
+CHAIN_NAMES = {
+    # Burgers / fast food
+    "mcdonald", "burger king", "wendy", "five guys", "shake shack", "smashburger",
+    "checkers", "rally", "white castle", "in-n-out", "culver",
+    # Chicken
+    "chick-fil-a", "kfc", "popeyes", "bojangles", "zaxby", "raising cane",
+    "wingstop", "buffalo wild wings", "chicken express", "church's chicken",
+    "pdq",
+    # Subs / sandwiches
+    "subway", "jersey mike", "jimmy john", "firehouse subs", "potbelly",
+    "quizno", "panera", "schlotzsky",
+    # Mexican / Tex-Mex
+    "taco bell", "chipotle", "qdoba", "moe's southwest", "del taco",
+    "taco john", "el pollo loco",
+    # Pizza
+    "pizza hut", "domino", "papa john", "little caesars", "papa murphy",
+    "marco's pizza", "round table",
+    # Sit-down chains
+    "olive garden", "outback", "longhorn", "texas roadhouse", "applebee",
+    "ihop", "denny's", "dennys", "cracker barrel", "cheesecake factory",
+    "tgi friday", "ruby tuesday", "chili's", "chilis", "red lobster",
+    "red robin", "carraba", "bonefish grill", "logan's roadhouse",
+    "lone star", "miller's ale house", "bj's restaurant", "carl's jr",
+    "hardee", "perkins", "bob evans", "waffle house", "huddle house",
+    "first watch", "another broken egg", "eggs up grill",
+    # Asian chains
+    "p.f. chang", "panda express", "pei wei", "benihana",
+    # Coffee / breakfast
+    "starbucks", "dunkin", "tim horton", "krispy kreme", "einstein bagel",
+    "tropical smoothie", "smoothie king", "jamba",
+    # Ice cream / dessert
+    "baskin-robbins", "dairy queen", "cold stone", "ben & jerry",
+    "menchie", "yogurtland", "kilwins",
+    # Bars / sports
+    "hooters", "world of beer", "miller's ale", "twin peak",
+    "sonic drive", "sonic ", "arby", "long john silver",
+    # Salad / health
+    "salad and go", "saladworks", "sweetgreen", "cava", "freshii",
+    # Steakhouses
+    "ruth's chris", "morton's", "fleming's",
+    # Italian
+    "fazoli", "carrabba",
+}
+
+
+def _name_is_chain(name: str) -> bool:
+    """Return True if the business name matches a known US chain brand."""
+    n = (name or "").lower()
+    return any(brand in n for brand in CHAIN_NAMES)
+
+
+def _is_farmers_market(raw: Dict[str, Any]) -> bool:
+    """Yelp's `farmersmarket` category alias indicates a farmers market.
+    Also catches public markets / food halls flagged as such."""
+    aliases = {(c.get("alias") or "").lower() for c in raw.get("categories", [])}
+    return bool(aliases & {"farmersmarket", "farmers_market", "publicmarkets"})
 
 log = logging.getLogger(__name__)
 
@@ -37,16 +104,25 @@ def _is_food_truck(raw: Dict[str, Any]) -> bool:
 
 
 async def fetch_all() -> Dict[str, List[Dict[str, Any]]]:
-    """Pull from Yelp once and split results into restaurants + food trucks.
+    """Pull from Yelp once and split results across destination collections.
 
-    Returns: {"restaurants": [...], "food_trucks": [...]}
+    Returns:
+      - restaurants    → /api/restaurants
+      - food_trucks    → /api/foodtrucks
+      - market_events  → /api/events (category='market')
     """
     restaurants_raw = await _fetch_restaurants_raw()
 
     restaurants: List[Dict[str, Any]] = []
     food_trucks: List[Dict[str, Any]] = []
+    market_events: List[Dict[str, Any]] = []
+
     for raw in restaurants_raw:
-        if _is_food_truck(raw):
+        if _is_farmers_market(raw):
+            ev = _normalize_market_event(raw)
+            if ev:
+                market_events.append(ev)
+        elif _is_food_truck(raw):
             ft = _normalize_food_truck(raw)
             if ft:
                 food_trucks.append(ft)
@@ -55,8 +131,86 @@ async def fetch_all() -> Dict[str, List[Dict[str, Any]]]:
             if r:
                 restaurants.append(r)
 
-    log.info(f"Yelp split: {len(restaurants)} restaurants, {len(food_trucks)} food trucks")
-    return {"restaurants": restaurants, "food_trucks": food_trucks}
+    log.info(
+        f"Yelp split: {len(restaurants)} restaurants, "
+        f"{len(food_trucks)} food trucks, {len(market_events)} farmer markets"
+    )
+    return {
+        "restaurants": restaurants,
+        "food_trucks": food_trucks,
+        "market_events": market_events,
+    }
+
+
+def _next_saturday_morning() -> datetime:
+    """Return next Saturday at 9:00 AM UTC.
+    Used as a placeholder start time for ingested farmer markets — they
+    typically run Saturday morning. Daily cron re-runs and refreshes the
+    date forward each week."""
+    now = datetime.now(timezone.utc)
+    days_until_saturday = (5 - now.weekday()) % 7  # Mon=0..Sun=6, Sat=5
+    if days_until_saturday == 0 and now.hour >= 12:
+        days_until_saturday = 7
+    target = now + timedelta(days=days_until_saturday)
+    return target.replace(hour=9, minute=0, second=0, microsecond=0)
+
+
+def _normalize_market_event(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Convert a Yelp farmers-market business into a NearScene event.
+
+    Yelp gives us location + rating but no schedule. We use 'next Saturday
+    9 AM' as a placeholder start time so the market shows up on the markets
+    tab. The description tells the user to verify the actual schedule.
+    """
+    name = raw.get("name")
+    if not name:
+        return None
+
+    coords = raw.get("coordinates") or {}
+    try:
+        lat = float(coords.get("latitude")) if coords.get("latitude") is not None else None
+        lon = float(coords.get("longitude")) if coords.get("longitude") is not None else None
+    except (TypeError, ValueError):
+        lat, lon = None, None
+    if lat is None or lon is None:
+        return None
+
+    location = raw.get("location") or {}
+    address_lines = location.get("display_address") or []
+    address = ", ".join(address_lines) if address_lines else (location.get("address1") or "")
+
+    start = _next_saturday_morning()
+    description = (
+        f"Local farmers market — fresh produce, baked goods, crafts, and more. "
+        f"Schedule varies; please check the venue's official site for hours and dates."
+    )
+
+    return {
+        "title": name,
+        "description": description,
+        "category": "market",
+        "start_date": to_iso(start),
+        "end_date": to_iso(start + timedelta(hours=4)),
+        "location_name": name,
+        "address": address,
+        "city": location.get("city") or "",
+        "state": location.get("state") or "",
+        "zip_code": location.get("zip_code") or "",
+        "latitude": lat,
+        "longitude": lon,
+        "image_url": raw.get("image_url"),
+        "is_paid": False,
+        "ticket_price": None,
+        "discount_percentage": None,
+        "total_tickets": None,
+        "is_promoted": False,
+        "tags": ["farmers_market", "local"],
+        "mood_tags": ["family_friendly", "outdoor", "dog_friendly"],
+        "external_url": raw.get("url"),
+        "_source": "yelp_market",
+        "_source_id": raw.get("id"),
+        "_source_url": raw.get("url"),
+    }
 
 
 async def _fetch_restaurants_raw() -> List[Dict[str, Any]]:
@@ -146,6 +300,7 @@ def _normalize_food_truck(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "menu_highlights": [],
         "rating": float(raw.get("rating") or 0),
         "review_count": int(raw.get("review_count") or 0),
+        "is_chain": _name_is_chain(name),
         "_source": "yelp",
         "_source_id": raw.get("id"),
         "_source_url": raw.get("url"),
@@ -212,6 +367,7 @@ def _normalize_restaurant(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "features": [],
         "mood_tags": [],
         "tags": category_tags,
+        "is_chain": _name_is_chain(name),
         "_source": "yelp",
         "_source_id": raw.get("id"),
         "_source_url": raw.get("url"),

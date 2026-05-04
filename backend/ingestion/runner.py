@@ -16,7 +16,7 @@ import logging
 import os
 import uuid
 from datetime import datetime, timezone
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from motor.motor_asyncio import AsyncIOMotorClient
 
@@ -36,14 +36,20 @@ def _get_db():
     return client[db_name]
 
 
-async def ingest_events(db) -> Dict[str, int]:
-    """Pull from all event sources, dedupe across sources and against existing data."""
+async def ingest_events(db, yelp_market_events: Optional[List[Dict[str, Any]]] = None) -> Dict[str, int]:
+    """Pull from all event sources, dedupe across sources and against existing data.
+    `yelp_market_events` (optional) can be provided so Yelp-derived farmer markets
+    flow into the events collection alongside Ticketmaster/SeatGeek concerts."""
     ticketmaster_events, seatgeek_events = await asyncio.gather(
         ticketmaster.fetch_events(),
         seatgeek.fetch_events(),
     )
-    candidates = ticketmaster_events + seatgeek_events
-    log.info(f"Total event candidates from all sources: {len(candidates)}")
+    candidates = ticketmaster_events + seatgeek_events + (yelp_market_events or [])
+    log.info(
+        f"Total event candidates: {len(candidates)} "
+        f"(tm={len(ticketmaster_events)}, sg={len(seatgeek_events)}, "
+        f"markets={len(yelp_market_events or [])})"
+    )
 
     # Dedupe within this batch (cross-source) by content hash
     seen_keys: Dict[str, Dict[str, Any]] = {}
@@ -94,15 +100,17 @@ async def ingest_events(db) -> Dict[str, int]:
     return {"inserted": inserted, "skipped": skipped, "total_candidates": len(candidates)}
 
 
-async def ingest_yelp(db) -> Dict[str, Dict[str, int]]:
+async def ingest_yelp(db) -> Dict[str, Any]:
     """Pull from Yelp once, route businesses to restaurants vs. food_trucks
-    based on Yelp's category aliases, dedupe both collections."""
+    vs. farmer-market events based on Yelp's category aliases, dedupe each."""
     split = await yelp.fetch_all()
     restaurants_candidates = split["restaurants"]
     food_trucks_candidates = split["food_trucks"]
+    market_event_candidates = split.get("market_events", [])
     log.info(
         f"Yelp candidates: restaurants={len(restaurants_candidates)} "
-        f"food_trucks={len(food_trucks_candidates)}"
+        f"food_trucks={len(food_trucks_candidates)} "
+        f"market_events={len(market_event_candidates)}"
     )
 
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -182,6 +190,8 @@ async def ingest_yelp(db) -> Dict[str, Dict[str, int]]:
             "skipped": ft_skipped,
             "total_candidates": len(food_trucks_candidates),
         },
+        # Surface raw market-event candidates so run_all can feed them into ingest_events
+        "market_events_raw": market_event_candidates,
     }
 
 
@@ -236,12 +246,19 @@ async def ingest_attractions(db) -> Dict[str, int]:
 
 
 async def run_all() -> Dict[str, Any]:
-    """Run every source. Returns a summary."""
+    """Run every source. Returns a summary.
+
+    Order matters: Yelp runs first because it produces farmer-market candidates
+    that we want to feed into ingest_events alongside Ticketmaster + SeatGeek
+    (so they appear on the markets tab on the homepage).
+    """
     db = _get_db()
     started = datetime.now(timezone.utc)
 
-    events_result = await ingest_events(db)
-    yelp_result = await ingest_yelp(db)              # restaurants + food trucks
+    yelp_result = await ingest_yelp(db)
+    market_events_raw = yelp_result.pop("market_events_raw", [])
+
+    events_result = await ingest_events(db, yelp_market_events=market_events_raw)
     attractions_result = await ingest_attractions(db)
 
     finished = datetime.now(timezone.utc)
