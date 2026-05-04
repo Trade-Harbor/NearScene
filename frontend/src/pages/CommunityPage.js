@@ -251,6 +251,53 @@ export default function CommunityPage() {
       )}
 
       <div className="container mx-auto px-4 md:px-6 lg:px-8 max-w-7xl py-8">
+        {/* When the 'Local News' category is selected, render the full news feed
+            instead of forum posts (which are user-submitted and category=news
+            rarely populated). Keeps the existing top-strip widget too. */}
+        {selectedCategory === 'news' && (
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Newspaper className="h-5 w-5 text-violet-500" />
+                <h2 className="font-heading text-2xl font-semibold">Wilmington Local News</h2>
+              </div>
+              <Badge variant="secondary">via Google News · refreshed daily</Badge>
+            </div>
+            {newsItems.length === 0 ? (
+              <div className="text-center py-12 bg-muted/30 rounded-xl">
+                <Newspaper className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                <p className="text-muted-foreground">No news items yet — check back after the next ingestion.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {newsItems.map((item) => (
+                  <a
+                    key={item.news_id || item.link}
+                    href={item.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block p-5 bg-card rounded-xl border border-border hover:border-violet-500/50 hover:shadow-md transition-all"
+                  >
+                    <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                      <span className="font-medium truncate">{item.source}</span>
+                      {item.published_at && (
+                        <>
+                          <span>·</span>
+                          <span>{formatDistanceToNow(new Date(item.published_at), { addSuffix: true })}</span>
+                        </>
+                      )}
+                    </p>
+                    <h3 className="font-medium text-base line-clamp-3 mb-2">{item.title}</h3>
+                    {item.summary && (
+                      <p className="text-sm text-muted-foreground line-clamp-3">{item.summary}</p>
+                    )}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="grid lg:grid-cols-4 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-3">

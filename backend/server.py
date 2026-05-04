@@ -2210,6 +2210,27 @@ async def admin_data_counts(request: Request, token: Optional[str] = None):
     return out
 
 
+@api_router.post("/admin/run-attractions")
+async def admin_run_attractions(request: Request, token: Optional[str] = None):
+    """Re-run JUST the attractions ingester. Useful when OSM Overpass was
+    rate-limited during a full ingestion run and we need to retry that
+    one piece without re-fetching everything else."""
+    _check_admin(request, token)
+    from ingestion.runner import ingest_attractions, _get_db
+    db_local = _get_db()
+    return await ingest_attractions(db_local)
+
+
+@api_router.post("/admin/run-news")
+async def admin_run_news(request: Request, token: Optional[str] = None):
+    """Re-run JUST the news ingester. Useful for seeing fresh headlines
+    without waiting for the daily cron."""
+    _check_admin(request, token)
+    from ingestion.runner import ingest_news, _get_db
+    db_local = _get_db()
+    return await ingest_news(db_local)
+
+
 @api_router.post("/admin/wipe-seed-community")
 async def admin_wipe_seed_community(request: Request, token: Optional[str] = None):
     """Delete the NYC mockup forum posts that were inserted by /api/seed.

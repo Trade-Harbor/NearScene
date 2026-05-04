@@ -22,20 +22,24 @@ PILOT_STATE = os.environ.get("PILOT_STATE", "NC")
 def event_dedup_key(title: str, start_date: str, location_name: str) -> str:
     """Stable hash for cross-source event dedup.
 
-    Same event reported by Ticketmaster AND SeatGeek often has slight
-    differences in title ('Tour 2026' suffix), location name ('Live Oak
-    Bank Pavilion' vs 'LOBP'), and exact start time. So we use:
+    Same event reported by Ticketmaster AND SeatGeek often has very different
+    titles for the same show — Ticketmaster keeps the full tour name like
+    'Waylon Wyatt - Everywhere Under The Sun' while SeatGeek collapses to
+    just the artist 'Waylon Wyatt'. So we key on:
 
-      - first 4 tokens of normalized title (handles tour-name suffixes)
+      - the FIRST 2 normalized tokens (basically just the artist/headline
+        — short enough that 'Waylon Wyatt - Tour Name' and 'Waylon Wyatt'
+        produce the same prefix)
       - start_date truncated to the hour
-      - location is intentionally NOT in the key (too variable across sources)
 
-    Trade-off: same artist playing back-to-back nights at same venue
-    produces different keys (different dates) — correct.
-    Same title + same hour at two different venues across a metro
-    produces the same key — extremely unlikely in practice.
+    Trade-offs:
+      * Same artist playing back-to-back nights → different dates, kept separate ✓
+      * Two distinct events with the same first 2 tokens at the same hour
+        in the same metro is vanishingly rare in practice
+      * Single-word artists ('Madonna', 'Beyoncé', 'Drake') get keyed on
+        just the one token — accepted (extremely unlikely to collide).
     """
-    title_tokens = _normalize(title).split()[:4]
+    title_tokens = _normalize(title).split()[:2]
     title_part = " ".join(title_tokens)
     date_part = (start_date or "")[:13]   # YYYY-MM-DDTHH (hour precision)
     normalized = f"{title_part}|{date_part}"
