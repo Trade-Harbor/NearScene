@@ -2157,24 +2157,28 @@ async def admin_test_yelp_chains(request: Request, token: Optional[str] = None):
 
 @api_router.get("/admin/find-duplicates")
 async def admin_find_duplicates(request: Request, token: Optional[str] = None):
-    """Find events that look like duplicates of each other based on
-    coordinates + same hour. Shows the actual stored title pairs so we
-    can see why the dedup didn't catch them."""
+    """Find events that look like duplicates by either:
+      - coordinates (2dp) + same hour
+      - day + similar lat (1dp) — catches venue geocode disagreements
+
+    Shows the actual stored title pairs and dedup keys so we can see why
+    the dedup didn't catch them."""
     _check_admin(request, token)
 
     pipeline = [
-        # Group by approximate location + hour
         {"$match": {"_source": {"$exists": True}}},
         {"$addFields": {
-            "lat_round": {"$round": ["$latitude", 2]},
-            "lon_round": {"$round": ["$longitude", 2]},
-            "date_hour": {"$substr": ["$start_date", 0, 13]},
+            "lat_round1": {"$round": ["$latitude", 1]},
+            "lon_round1": {"$round": ["$longitude", 1]},
+            "date_day": {"$substr": ["$start_date", 0, 10]},
         }},
+        # Group by day + 1-decimal lat/lon (~11km) so we cast a wide net for
+        # things that might be the same venue with disagreed-upon geocoding.
         {"$group": {
             "_id": {
-                "lat": "$lat_round",
-                "lon": "$lon_round",
-                "hour": "$date_hour",
+                "lat": "$lat_round1",
+                "lon": "$lon_round1",
+                "day": "$date_day",
             },
             "count": {"$sum": 1},
             "events": {"$push": {
@@ -2183,20 +2187,22 @@ async def admin_find_duplicates(request: Request, token: Optional[str] = None):
                 "event_id": "$event_id",
                 "lat": "$latitude",
                 "lon": "$longitude",
+                "start_date": "$start_date",
                 "dedup_key": "$_dedup_key",
                 "loc_dedup_key": "$_loc_dedup_key",
+                "set_dedup_key": "$_set_dedup_key",
             }},
         }},
         {"$match": {"count": {"$gt": 1}}},
         {"$sort": {"count": -1}},
-        {"$limit": 20},
+        {"$limit": 30},
     ]
     duplicates = []
     async for group in db.events.aggregate(pipeline):
         duplicates.append({
-            "lat_round": group["_id"]["lat"],
-            "lon_round": group["_id"]["lon"],
-            "hour": group["_id"]["hour"],
+            "lat_round1": group["_id"]["lat"],
+            "lon_round1": group["_id"]["lon"],
+            "day": group["_id"]["day"],
             "count": group["count"],
             "events": group["events"],
         })

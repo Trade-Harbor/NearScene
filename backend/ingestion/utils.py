@@ -39,6 +39,37 @@ def event_dedup_key(title: str, start_date: str, location_name: str) -> str:
     return hashlib.sha1(normalized.encode("utf-8")).hexdigest()
 
 
+def event_title_set_dedup_key(title: str, start_date: str) -> str:
+    """Tertiary dedup key based on a content-tokens SET + day.
+
+    Catches sports games where titles are entirely different word orders:
+      'UNC Wilmington Seahawks Baseball vs. High Point Panthers Baseball'
+      'High Point Panthers at UNC Wilmington Seahawks Baseball'
+    Token-set is identical: {baseball, high, panthers, point, seahawks,
+    unc, wilmington} → same key regardless of word order.
+
+    Day-precision (not hour) because the title-set already provides strong
+    constraint, and TM/SG occasionally disagree about the exact start time
+    by an hour for the same game.
+
+    Stopwords (vs, at, the, etc.) are stripped so that 'A vs B' and 'B at A'
+    produce the same set.
+    """
+    if not title:
+        return ""
+    tokens = set(_normalize(title).split())
+    stopwords = {"vs", "v", "at", "the", "a", "and", "an", "of", "in",
+                 "on", "to", "for", "with", "&"}
+    tokens -= stopwords
+    if not tokens:
+        return ""
+    # Sort for determinism so the same set always hashes the same
+    title_part = "|".join(sorted(tokens))
+    date_part = (start_date or "")[:10]   # YYYY-MM-DD (day precision)
+    normalized = f"{title_part}|{date_part}"
+    return hashlib.sha1(normalized.encode("utf-8")).hexdigest()
+
+
 def event_location_dedup_key(latitude: float, longitude: float, start_date: str) -> str:
     """Secondary dedup key based on geographic coordinates + start hour.
 
