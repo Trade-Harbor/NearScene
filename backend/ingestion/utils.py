@@ -20,29 +20,44 @@ PILOT_STATE = os.environ.get("PILOT_STATE", "NC")
 
 
 def event_dedup_key(title: str, start_date: str, location_name: str) -> str:
-    """Stable hash for cross-source event dedup.
+    """Stable hash for cross-source event dedup based on TITLE + hour.
 
-    Same event reported by Ticketmaster AND SeatGeek often has very different
-    titles for the same show — Ticketmaster keeps the full tour name like
-    'Waylon Wyatt - Everywhere Under The Sun' while SeatGeek collapses to
-    just the artist 'Waylon Wyatt'. So we key on:
+    Catches concerts where the title differs slightly across sources:
+      'Waylon Wyatt - Everywhere Under The Sun' (Ticketmaster)
+      'Waylon Wyatt' (SeatGeek)
+    Both reduce to 'waylon wyatt' (first 2 normalized tokens).
 
-      - the FIRST 2 normalized tokens (basically just the artist/headline
-        — short enough that 'Waylon Wyatt - Tour Name' and 'Waylon Wyatt'
-        produce the same prefix)
-      - start_date truncated to the hour
-
-    Trade-offs:
-      * Same artist playing back-to-back nights → different dates, kept separate ✓
-      * Two distinct events with the same first 2 tokens at the same hour
-        in the same metro is vanishingly rare in practice
-      * Single-word artists ('Madonna', 'Beyoncé', 'Drake') get keyed on
-        just the one token — accepted (extremely unlikely to collide).
+    But it MISSES sports events because home/away framing flips the title:
+      'UNC Wilmington Seahawks vs High Point Panthers'  (TM)
+      'High Point Panthers at UNC Wilmington Seahawks'  (SG)
+    For those we use `event_location_dedup_key` below as a second pass.
     """
     title_tokens = _normalize(title).split()[:2]
     title_part = " ".join(title_tokens)
     date_part = (start_date or "")[:13]   # YYYY-MM-DDTHH (hour precision)
     normalized = f"{title_part}|{date_part}"
+    return hashlib.sha1(normalized.encode("utf-8")).hexdigest()
+
+
+def event_location_dedup_key(latitude: float, longitude: float, start_date: str) -> str:
+    """Secondary dedup key based on geographic coordinates + start hour.
+
+    Same venue at the same hour is overwhelmingly the same event regardless
+    of how the title is worded. Catches sports games whose titles are flipped
+    home/away across sources.
+
+    Lat/lon rounded to 3 decimals (~110m precision) so tiny coordinate
+    differences from the two source databases don't cause false misses.
+
+    Trade-off: a rare double-booking (e.g. concert + comedy show at the
+    same arena in the same hour) would falsely dedupe. We accept that.
+    """
+    if latitude is None or longitude is None:
+        return ""  # Can't dedupe by location if we don't have coords
+    lat_part = f"{round(float(latitude), 3)}"
+    lon_part = f"{round(float(longitude), 3)}"
+    date_part = (start_date or "")[:13]
+    normalized = f"{lat_part}|{lon_part}|{date_part}"
     return hashlib.sha1(normalized.encode("utf-8")).hexdigest()
 
 

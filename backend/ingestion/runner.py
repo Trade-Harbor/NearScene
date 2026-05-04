@@ -21,7 +21,7 @@ from typing import Dict, Any, List, Optional
 from motor.motor_asyncio import AsyncIOMotorClient
 
 from . import ticketmaster, seatgeek, yelp, osm_attractions, news
-from .utils import event_dedup_key, business_dedup_key
+from .utils import event_dedup_key, event_location_dedup_key, business_dedup_key
 
 log = logging.getLogger(__name__)
 
@@ -51,29 +51,62 @@ async def ingest_events(db, yelp_market_events: Optional[List[Dict[str, Any]]] =
         f"markets={len(yelp_market_events or [])})"
     )
 
-    # Dedupe within this batch (cross-source) by content hash
-    seen_keys: Dict[str, Dict[str, Any]] = {}
-    for ev in candidates:
-        key = event_dedup_key(ev["title"], ev["start_date"], ev["location_name"])
-        # Prefer Ticketmaster over SeatGeek when both have the same event
-        # (TM tends to have richer venue + image data)
-        if key not in seen_keys or ev["_source"] == "ticketmaster":
-            seen_keys[key] = ev
+    # Each event has TWO dedup keys: title-based and location-based.
+    # Skip an event if EITHER key matches an existing record or another
+    # event in this batch we've already chosen. Catches both:
+    #   - Concert title variance ('Artist - Tour' vs 'Artist')  → title key
+    #   - Sports home/away framing (A vs B  vs  B at A)            → location key
 
-    # Dedupe against existing DB records (already-imported events)
-    existing_keys = set()
+    # Dedupe within this batch
+    seen_title_keys: Dict[str, Dict[str, Any]] = {}
+    seen_loc_keys: Dict[str, str] = {}   # loc_key → title_key chosen for that loc
+    chosen: Dict[str, Dict[str, Any]] = {}  # title_key → event
+
+    for ev in candidates:
+        tk = event_dedup_key(ev["title"], ev["start_date"], ev["location_name"])
+        lk = event_location_dedup_key(ev.get("latitude"), ev.get("longitude"), ev["start_date"])
+
+        # If this location/hour was already represented by a different title,
+        # skip OR upgrade to Ticketmaster's version (richer metadata).
+        if lk and lk in seen_loc_keys:
+            existing_tk = seen_loc_keys[lk]
+            if ev["_source"] == "ticketmaster" and chosen.get(existing_tk, {}).get("_source") != "ticketmaster":
+                # Upgrade to TM version: drop the old chosen, replace with this one
+                chosen.pop(existing_tk, None)
+                seen_title_keys.pop(existing_tk, None)
+                seen_loc_keys[lk] = tk
+                chosen[tk] = ev
+                seen_title_keys[tk] = ev
+            # Otherwise the location is already covered → skip this candidate
+            continue
+
+        # New (lk, tk) combination
+        if tk not in chosen or ev["_source"] == "ticketmaster":
+            chosen[tk] = ev
+            seen_title_keys[tk] = ev
+            if lk:
+                seen_loc_keys[lk] = tk
+
+    # Dedupe against existing DB records (already-imported events).
+    # Pull both _dedup_key and a stored _loc_dedup_key for full coverage.
+    existing_title_keys = set()
+    existing_loc_keys = set()
     async for doc in db.events.find(
         {"_dedup_key": {"$exists": True}},
-        {"_dedup_key": 1, "_id": 0},
+        {"_dedup_key": 1, "_loc_dedup_key": 1, "_id": 0},
     ):
-        existing_keys.add(doc["_dedup_key"])
+        if doc.get("_dedup_key"):
+            existing_title_keys.add(doc["_dedup_key"])
+        if doc.get("_loc_dedup_key"):
+            existing_loc_keys.add(doc["_loc_dedup_key"])
 
     skipped = 0
     now_iso = datetime.now(timezone.utc).isoformat()
     docs_to_insert: List[Dict[str, Any]] = []
 
-    for key, ev in seen_keys.items():
-        if key in existing_keys:
+    for tk, ev in chosen.items():
+        lk = event_location_dedup_key(ev.get("latitude"), ev.get("longitude"), ev["start_date"])
+        if tk in existing_title_keys or (lk and lk in existing_loc_keys):
             skipped += 1
             continue
 
@@ -87,7 +120,8 @@ async def ingest_events(db, yelp_market_events: Optional[List[Dict[str, Any]]] =
             "organizer_name": ev["_source"].title(),
             "organizer_type": "external",
             "created_at": now_iso,
-            "_dedup_key": key,
+            "_dedup_key": tk,
+            "_loc_dedup_key": lk,
         })
 
     # Single bulk insert beats N individual inserts on Atlas — round-trip cost dominates
