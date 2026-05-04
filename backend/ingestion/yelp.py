@@ -76,10 +76,36 @@ CHAIN_NAMES = {
 }
 
 
+def _normalize_name(s: Optional[str]) -> str:
+    """Normalize a business name for fuzzy matching: lowercase, strip
+    everything except letters/digits/spaces, collapse whitespace.
+    'Chick-fil-A' → 'chickfila', 'McDonald's' → 'mcdonalds'."""
+    if not s:
+        return ""
+    cleaned = "".join(c.lower() for c in s if c.isalnum() or c.isspace())
+    return " ".join(cleaned.split())
+
+
 def _name_is_chain(name: str) -> bool:
-    """Return True if the business name matches a known US chain brand."""
-    n = (name or "").lower()
-    return any(brand in n for brand in CHAIN_NAMES)
+    """Return True if the business name matches a known US chain brand.
+    Uses normalized substring matching so punctuation/casing differences
+    don't trip us up."""
+    norm = _normalize_name(name)
+    return any(_normalize_name(brand) in norm for brand in CHAIN_NAMES)
+
+
+def _name_matches_search_term(business_name: str, search_term: str) -> bool:
+    """Whether a Yelp search result actually matches the chain we searched for.
+
+    We need this because Yelp's term=Buffalo+Wild+Wings can return tangential
+    results (e.g. 'Wild Buffalo Bar'). Use a token-set match: every token of
+    the search term must appear in the business name (after normalization).
+    """
+    name_norm = _normalize_name(business_name)
+    term_tokens = _normalize_name(search_term).split()
+    if not term_tokens:
+        return False
+    return all(tok in name_norm for tok in term_tokens)
 
 
 # Curated list of popular US chains to search for explicitly. Yelp's best_match
@@ -255,6 +281,66 @@ def _normalize_market_event(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     }
 
 
+async def debug_chain_searches() -> Dict[str, Any]:
+    """Run only the explicit chain searches and return per-term diagnostics.
+    Used by /api/admin/test-yelp-chains to debug why chains aren't being detected.
+    Does not write to the database."""
+    api_key = os.environ.get("YELP_API_KEY")
+    if not api_key:
+        return {"error": "YELP_API_KEY not set"}
+
+    radius_m = min(int(PILOT_RADIUS_MILES * MILES_TO_METERS), 40000)
+    headers = {"Authorization": f"Bearer {api_key}"}
+
+    per_term: List[Dict[str, Any]] = []
+    total_matches = 0
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        for term in CHAIN_SEARCH_TERMS:
+            entry: Dict[str, Any] = {"term": term}
+            try:
+                resp = await client.get(
+                    API_BASE,
+                    params={
+                        "term": term,
+                        "latitude": PILOT_LAT,
+                        "longitude": PILOT_LON,
+                        "radius": radius_m,
+                        "limit": 5,
+                    },
+                    headers=headers,
+                )
+            except Exception as e:
+                entry["error"] = str(e)
+                per_term.append(entry)
+                continue
+
+            entry["status"] = resp.status_code
+            if resp.status_code != 200:
+                entry["body_preview"] = resp.text[:200]
+                per_term.append(entry)
+                continue
+
+            data = resp.json()
+            businesses = data.get("businesses", [])
+            entry["raw_count"] = len(businesses)
+            entry["raw_names"] = [b.get("name") for b in businesses]
+
+            matches = [b for b in businesses
+                       if _name_matches_search_term(b.get("name"), term)]
+            entry["matched_count"] = len(matches)
+            entry["matched_names"] = [b.get("name") for b in matches]
+            total_matches += len(matches)
+            per_term.append(entry)
+
+    return {
+        "total_chain_matches": total_matches,
+        "terms_with_matches": sum(1 for e in per_term if e.get("matched_count")),
+        "terms_with_zero_matches": sum(1 for e in per_term if e.get("matched_count") == 0),
+        "per_term": per_term,
+    }
+
+
 async def _fetch_restaurants_raw() -> List[Dict[str, Any]]:
     """Inner helper: returns raw deduped Yelp business dicts before normalization.
 
@@ -323,11 +409,10 @@ async def _fetch_restaurants_raw() -> List[Dict[str, Any]]:
                     continue
                 businesses = resp.json().get("businesses", [])
                 # Filter to results whose name actually matches the chain.
-                # Yelp's term search can return tangential results (e.g.
-                # 'Five Guys' query might return 'The Five Guys Bar').
-                term_lower = term.lower()
+                # Token-based fuzzy match handles punctuation/apostrophe
+                # differences (Chick-fil-A vs Chick fil A, McDonald's vs McDonalds).
                 matches = [b for b in businesses
-                           if term_lower in (b.get("name") or "").lower()]
+                           if _name_matches_search_term(b.get("name"), term)]
                 all_businesses.extend(matches)
                 chain_count += len(matches)
             log.info(f"Yelp explicit chain search added {chain_count} chain businesses")

@@ -2135,6 +2135,16 @@ async def admin_get_ingestion_runs(request: Request, token: Optional[str] = None
     return runs
 
 
+@api_router.get("/admin/test-yelp-chains")
+async def admin_test_yelp_chains(request: Request, token: Optional[str] = None):
+    """Debug: run the explicit chain searches and return per-term diagnostics
+    (HTTP status, raw business names returned, names that survived our match
+    filter). Tells us exactly where chain detection is breaking."""
+    _check_admin(request, token)
+    from ingestion import yelp
+    return await yelp.debug_chain_searches()
+
+
 @api_router.get("/admin/test-osm")
 async def admin_test_osm(request: Request, token: Optional[str] = None):
     """Debug: run only the OSM Overpass fetch and return rich diagnostics
