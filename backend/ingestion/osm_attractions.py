@@ -31,10 +31,15 @@ log = logging.getLogger(__name__)
 # fallbacks. Free Overpass instances rate-limit aggressively so multi-mirror
 # is essential for reliable daily ingestion.
 OVERPASS_URLS = [
-    "https://overpass-api.de/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter",
+    "https://lz4.overpass-api.de/api/interpreter",   # Cloudflare-fronted, fastest from US
+    "https://overpass-api.de/api/interpreter",        # Main
+    "https://overpass.kumi.systems/api/interpreter",  # Community mirror (Germany)
     "https://overpass.private.coffee/api/interpreter",
 ]
+
+# Per-mirror HTTP timeout. Keep shortish so the full attempt across all
+# mirrors stays well under Render's request timeout (~100s on free tier).
+PER_MIRROR_TIMEOUT = 30.0
 
 MILES_TO_METERS = 1609.34
 
@@ -128,13 +133,19 @@ async def _post_overpass(query: str) -> Tuple[int, str, Dict[str, Any]]:
     last_status = 0
     last_preview = ""
 
+    # Force IPv4 by binding to 0.0.0.0 — Render's IPv6 routing has been
+    # observed to drop connections to some Overpass mirrors. IPv4 is reliable.
+    transport = httpx.AsyncHTTPTransport(local_address="0.0.0.0", retries=1)
+
     for url in OVERPASS_URLS:
         try:
-            async with httpx.AsyncClient(timeout=120.0) as client:
+            async with httpx.AsyncClient(
+                timeout=PER_MIRROR_TIMEOUT, transport=transport
+            ) as client:
                 resp = await client.post(url, content=body, headers=headers)
         except httpx.HTTPError as e:
             log.warning(f"Overpass mirror {url} HTTP error: {e}; trying next")
-            last_preview = str(e)
+            last_preview = f"{type(e).__name__}: {e}"
             continue
 
         text_preview = resp.text[:500] if resp.text else ""

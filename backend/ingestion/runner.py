@@ -178,8 +178,15 @@ async def ingest_yelp(db) -> Dict[str, Dict[str, int]]:
 
 
 async def ingest_attractions(db) -> Dict[str, int]:
-    """Pull attractions from OSM Overpass, dedupe by name+address, insert."""
-    candidates = await osm_attractions.fetch_attractions()
+    """Pull attractions from OSM Overpass, dedupe by name+address, insert.
+    Failures are non-fatal — the rest of the ingestion run still completes.
+    OSM Overpass is community-run and occasionally unreachable; the daily
+    cron will pick up where this leaves off."""
+    try:
+        candidates = await osm_attractions.fetch_attractions()
+    except Exception as e:
+        log.error(f"OSM ingestion failed (continuing without attractions): {e}")
+        return {"inserted": 0, "skipped": 0, "total_candidates": 0, "error": str(e)}
     log.info(f"Attraction candidates: {len(candidates)}")
 
     existing_keys = set()
