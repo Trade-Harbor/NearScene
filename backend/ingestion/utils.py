@@ -46,16 +46,21 @@ def event_location_dedup_key(latitude: float, longitude: float, start_date: str)
     of how the title is worded. Catches sports games whose titles are flipped
     home/away across sources.
 
-    Lat/lon rounded to 3 decimals (~110m precision) so tiny coordinate
-    differences from the two source databases don't cause false misses.
+    Lat/lon rounded to 2 decimals (~1.1km precision). Originally tried 3
+    decimals (~110m) but cross-source coordinates drift more than that —
+    Ticketmaster's geocoder may put a venue at 34.2235 while SeatGeek's
+    has it at 34.2244, which round to different values at 3 decimals
+    (34.224 vs 34.224... wait those are the same — but values like 34.2244
+    vs 34.2255 round to 34.224 vs 34.226 at 3 decimals → MISS).
+    2 decimals is forgiving enough; venues a kilometer apart still distinct.
 
-    Trade-off: a rare double-booking (e.g. concert + comedy show at the
-    same arena in the same hour) would falsely dedupe. We accept that.
+    Trade-off: events at two different venues within ~1km of each other
+    happening at the same hour would falsely merge. Rare enough we accept it.
     """
     if latitude is None or longitude is None:
         return ""  # Can't dedupe by location if we don't have coords
-    lat_part = f"{round(float(latitude), 3)}"
-    lon_part = f"{round(float(longitude), 3)}"
+    lat_part = f"{round(float(latitude), 2)}"
+    lon_part = f"{round(float(longitude), 2)}"
     date_part = (start_date or "")[:13]
     normalized = f"{lat_part}|{lon_part}|{date_part}"
     return hashlib.sha1(normalized.encode("utf-8")).hexdigest()

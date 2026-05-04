@@ -2155,6 +2155,57 @@ async def admin_test_yelp_chains(request: Request, token: Optional[str] = None):
     return await yelp.debug_chain_searches()
 
 
+@api_router.get("/admin/find-duplicates")
+async def admin_find_duplicates(request: Request, token: Optional[str] = None):
+    """Find events that look like duplicates of each other based on
+    coordinates + same hour. Shows the actual stored title pairs so we
+    can see why the dedup didn't catch them."""
+    _check_admin(request, token)
+
+    pipeline = [
+        # Group by approximate location + hour
+        {"$match": {"_source": {"$exists": True}}},
+        {"$addFields": {
+            "lat_round": {"$round": ["$latitude", 2]},
+            "lon_round": {"$round": ["$longitude", 2]},
+            "date_hour": {"$substr": ["$start_date", 0, 13]},
+        }},
+        {"$group": {
+            "_id": {
+                "lat": "$lat_round",
+                "lon": "$lon_round",
+                "hour": "$date_hour",
+            },
+            "count": {"$sum": 1},
+            "events": {"$push": {
+                "title": "$title",
+                "source": "$_source",
+                "event_id": "$event_id",
+                "lat": "$latitude",
+                "lon": "$longitude",
+                "dedup_key": "$_dedup_key",
+                "loc_dedup_key": "$_loc_dedup_key",
+            }},
+        }},
+        {"$match": {"count": {"$gt": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 20},
+    ]
+    duplicates = []
+    async for group in db.events.aggregate(pipeline):
+        duplicates.append({
+            "lat_round": group["_id"]["lat"],
+            "lon_round": group["_id"]["lon"],
+            "hour": group["_id"]["hour"],
+            "count": group["count"],
+            "events": group["events"],
+        })
+    return {
+        "duplicate_groups_found": len(duplicates),
+        "groups": duplicates,
+    }
+
+
 @api_router.get("/admin/test-yelp-full")
 async def admin_test_yelp_full(request: Request, token: Optional[str] = None):
     """Debug: run the full Yelp restaurant fetch (all 3 passes) and report
