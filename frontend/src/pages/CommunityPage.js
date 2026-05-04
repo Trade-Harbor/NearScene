@@ -78,14 +78,25 @@ export default function CommunityPage() {
   const [showNewPost, setShowNewPost] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
   const [userStats, setUserStats] = useState(null);
+  const [newsItems, setNewsItems] = useState([]);
 
   useEffect(() => {
     fetchPosts();
     fetchLeaderboard();
+    fetchNews();
     if (isAuthenticated) {
       fetchUserStats();
     }
   }, [selectedCategory, localOnly, isAuthenticated]);
+
+  const fetchNews = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/api/news`, { params: { limit: 8 } });
+      setNewsItems(response.data || []);
+    } catch (error) {
+      console.error('Error fetching news:', error);
+    }
+  };
 
   const fetchPosts = async () => {
     setLoading(true);
@@ -173,6 +184,71 @@ export default function CommunityPage() {
           </p>
         </div>
       </div>
+
+      {/* Local News Strip */}
+      {newsItems.length > 0 && (
+        <div className="border-b border-border bg-muted/30">
+          <div className="container mx-auto px-4 md:px-6 lg:px-8 max-w-7xl py-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Newspaper className="h-5 w-5 text-violet-500" />
+              <h2 className="font-heading text-xl font-semibold">Local News</h2>
+              <Badge variant="secondary" className="text-xs">via Google News</Badge>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {newsItems.slice(0, 4).map((item) => (
+                <a
+                  key={item.news_id || item.link}
+                  href={item.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block p-4 bg-card rounded-xl border border-border hover:border-violet-500/50 hover:shadow-md transition-all"
+                  data-testid={`news-${item.news_id || ''}`}
+                >
+                  <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                    <span className="font-medium truncate">{item.source}</span>
+                    {item.published_at && (
+                      <>
+                        <span>·</span>
+                        <span>{formatDistanceToNow(new Date(item.published_at), { addSuffix: true })}</span>
+                      </>
+                    )}
+                  </p>
+                  <h3 className="font-medium text-sm line-clamp-3 group-hover:text-violet-600">{item.title}</h3>
+                </a>
+              ))}
+            </div>
+            {newsItems.length > 4 && (
+              <details className="mt-4">
+                <summary className="text-sm text-muted-foreground cursor-pointer hover:text-foreground">
+                  Show {newsItems.length - 4} more headlines
+                </summary>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+                  {newsItems.slice(4).map((item) => (
+                    <a
+                      key={item.news_id || item.link}
+                      href={item.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block p-4 bg-card rounded-xl border border-border hover:border-violet-500/50 hover:shadow-md transition-all"
+                    >
+                      <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                        <span className="font-medium truncate">{item.source}</span>
+                        {item.published_at && (
+                          <>
+                            <span>·</span>
+                            <span>{formatDistanceToNow(new Date(item.published_at), { addSuffix: true })}</span>
+                          </>
+                        )}
+                      </p>
+                      <h3 className="font-medium text-sm line-clamp-3">{item.title}</h3>
+                    </a>
+                  ))}
+                </div>
+              </details>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="container mx-auto px-4 md:px-6 lg:px-8 max-w-7xl py-8">
         <div className="grid lg:grid-cols-4 gap-8">

@@ -2102,6 +2102,16 @@ async def health():
     return {"status": "healthy"}
 
 
+# ============= LOCAL NEWS =============
+
+@api_router.get("/news")
+async def get_news(limit: int = 20):
+    """Recent local-area news headlines (Google News RSS, refreshed daily)."""
+    cursor = db.news.find({}, {"_id": 0}).sort("published_at", -1).limit(limit)
+    items = await cursor.to_list(limit)
+    return items
+
+
 # ============= ADMIN: INGESTION TRIGGER =============
 # Gate with a simple shared secret in the X-Admin-Token header. Set ADMIN_TOKEN
 # in Render env vars. Useful for manually triggering an ingestion run during
@@ -2198,6 +2208,21 @@ async def admin_data_counts(request: Request, token: Optional[str] = None):
     out["restaurants"]["chain_sample"] = [r["name"] for r in chain_sample]
 
     return out
+
+
+@api_router.post("/admin/wipe-seed-community")
+async def admin_wipe_seed_community(request: Request, token: Optional[str] = None):
+    """Delete the NYC mockup forum posts that were inserted by /api/seed.
+    Identified by post_id starting with 'post_demo_' OR author_id 'system'.
+    Real user-submitted posts (real account ids) are preserved."""
+    _check_admin(request, token)
+    result = await db.forum_posts.delete_many({
+        "$or": [
+            {"post_id": {"$regex": "^post_demo_"}},
+            {"author_id": "system"},
+        ]
+    })
+    return {"deleted": result.deleted_count}
 
 
 @api_router.post("/admin/reset-external")

@@ -22,10 +22,23 @@ PILOT_STATE = os.environ.get("PILOT_STATE", "NC")
 def event_dedup_key(title: str, start_date: str, location_name: str) -> str:
     """Stable hash for cross-source event dedup.
 
-    Same event reported by Ticketmaster AND SeatGeek should produce the
-    same key so the second insert is skipped.
+    Same event reported by Ticketmaster AND SeatGeek often has slight
+    differences in title ('Tour 2026' suffix), location name ('Live Oak
+    Bank Pavilion' vs 'LOBP'), and exact start time. So we use:
+
+      - first 4 tokens of normalized title (handles tour-name suffixes)
+      - start_date truncated to the hour
+      - location is intentionally NOT in the key (too variable across sources)
+
+    Trade-off: same artist playing back-to-back nights at same venue
+    produces different keys (different dates) — correct.
+    Same title + same hour at two different venues across a metro
+    produces the same key — extremely unlikely in practice.
     """
-    normalized = f"{_normalize(title)}|{start_date[:16]}|{_normalize(location_name)}"
+    title_tokens = _normalize(title).split()[:4]
+    title_part = " ".join(title_tokens)
+    date_part = (start_date or "")[:13]   # YYYY-MM-DDTHH (hour precision)
+    normalized = f"{title_part}|{date_part}"
     return hashlib.sha1(normalized.encode("utf-8")).hexdigest()
 
 
@@ -77,10 +90,12 @@ def map_category_from_text(text: str) -> str:
         if "food" in t:
             return "food_festival"
         return "concert"
-    if any(k in t for k in ["sport", "football", "basketball", "baseball", "hockey", "soccer", "race"]):
+    if any(k in t for k in ["sport", "football", "basketball", "baseball", "hockey", "soccer",
+                              "race", "nba", "nfl", "mlb", "nhl", "wrestling", "boxing", "ufc",
+                              "tennis", "golf", "lacrosse", "volleyball", "rugby", "cycling"]):
         if "marathon" in t or "run" in t:
             return "marathon"
-        return "other"
+        return "sports"
     if "parade" in t:
         return "parade"
     if "marathon" in t or "5k" in t or "10k" in t:

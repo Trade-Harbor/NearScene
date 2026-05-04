@@ -20,7 +20,7 @@ from typing import Dict, Any, List, Optional
 
 from motor.motor_asyncio import AsyncIOMotorClient
 
-from . import ticketmaster, seatgeek, yelp, osm_attractions
+from . import ticketmaster, seatgeek, yelp, osm_attractions, news
 from .utils import event_dedup_key, business_dedup_key
 
 log = logging.getLogger(__name__)
@@ -245,6 +245,39 @@ async def ingest_attractions(db) -> Dict[str, int]:
     return {"inserted": inserted, "skipped": skipped, "total_candidates": len(candidates)}
 
 
+async def ingest_news(db) -> Dict[str, int]:
+    """Pull local-area news from Google News RSS, dedupe by article URL, insert.
+    Failures are non-fatal."""
+    try:
+        candidates = await news.fetch_news()
+    except Exception as e:
+        log.error(f"News ingestion failed: {e}")
+        return {"inserted": 0, "skipped": 0, "total_candidates": 0, "error": str(e)}
+
+    existing_urls = set()
+    async for doc in db.news.find({"link": {"$exists": True}}, {"link": 1, "_id": 0}):
+        existing_urls.add(doc["link"])
+
+    skipped = 0
+    now_iso = datetime.now(timezone.utc).isoformat()
+    docs_to_insert: List[Dict[str, Any]] = []
+    for n in candidates:
+        if n["link"] in existing_urls:
+            skipped += 1
+            continue
+        docs_to_insert.append({
+            "news_id": f"news_{uuid.uuid4().hex[:12]}",
+            **n,
+            "ingested_at": now_iso,
+        })
+    inserted = 0
+    if docs_to_insert:
+        result = await db.news.insert_many(docs_to_insert, ordered=False)
+        inserted = len(result.inserted_ids)
+    log.info(f"News: inserted={inserted}, skipped_duplicate={skipped}")
+    return {"inserted": inserted, "skipped": skipped, "total_candidates": len(candidates)}
+
+
 async def run_all() -> Dict[str, Any]:
     """Run every source. Returns a summary.
 
@@ -260,6 +293,7 @@ async def run_all() -> Dict[str, Any]:
 
     events_result = await ingest_events(db, yelp_market_events=market_events_raw)
     attractions_result = await ingest_attractions(db)
+    news_result = await ingest_news(db)
 
     finished = datetime.now(timezone.utc)
     duration = (finished - started).total_seconds()
@@ -272,6 +306,7 @@ async def run_all() -> Dict[str, Any]:
         "restaurants": yelp_result["restaurants"],
         "food_trucks": yelp_result["food_trucks"],
         "attractions": attractions_result,
+        "news": news_result,
     }
 
     # Audit log so we can see ingestion history
