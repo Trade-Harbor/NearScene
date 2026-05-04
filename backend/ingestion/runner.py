@@ -62,9 +62,9 @@ async def ingest_events(db) -> Dict[str, int]:
     ):
         existing_keys.add(doc["_dedup_key"])
 
-    inserted = 0
     skipped = 0
     now_iso = datetime.now(timezone.utc).isoformat()
+    docs_to_insert: List[Dict[str, Any]] = []
 
     for key, ev in seen_keys.items():
         if key in existing_keys:
@@ -72,7 +72,7 @@ async def ingest_events(db) -> Dict[str, int]:
             continue
 
         event_id = f"event_{uuid.uuid4().hex[:12]}"
-        doc = {
+        docs_to_insert.append({
             "event_id": event_id,
             **ev,
             "tickets_sold": 0,
@@ -82,9 +82,13 @@ async def ingest_events(db) -> Dict[str, int]:
             "organizer_type": "external",
             "created_at": now_iso,
             "_dedup_key": key,
-        }
-        await db.events.insert_one(doc)
-        inserted += 1
+        })
+
+    # Single bulk insert beats N individual inserts on Atlas — round-trip cost dominates
+    inserted = 0
+    if docs_to_insert:
+        result = await db.events.insert_many(docs_to_insert, ordered=False)
+        inserted = len(result.inserted_ids)
 
     log.info(f"Events: inserted={inserted}, skipped_duplicate={skipped}")
     return {"inserted": inserted, "skipped": skipped, "total_candidates": len(candidates)}
@@ -111,15 +115,15 @@ async def ingest_yelp(db) -> Dict[str, Dict[str, int]]:
     ):
         existing_rest_keys.add(doc["_dedup_key"])
 
-    rest_inserted = 0
     rest_skipped = 0
+    rest_to_insert: List[Dict[str, Any]] = []
     for r in restaurants_candidates:
         key = business_dedup_key(r["name"], r["address"])
         if key in existing_rest_keys:
             rest_skipped += 1
             continue
         restaurant_id = f"restaurant_{uuid.uuid4().hex[:12]}"
-        doc = {
+        rest_to_insert.append({
             "restaurant_id": restaurant_id,
             **r,
             "owner_id": f"source_{r['_source']}",
@@ -127,9 +131,11 @@ async def ingest_yelp(db) -> Dict[str, Dict[str, int]]:
             "is_active": True,
             "created_at": now_iso,
             "_dedup_key": key,
-        }
-        await db.restaurants.insert_one(doc)
-        rest_inserted += 1
+        })
+    rest_inserted = 0
+    if rest_to_insert:
+        result = await db.restaurants.insert_many(rest_to_insert, ordered=False)
+        rest_inserted = len(result.inserted_ids)
 
     # === Food trucks ===
     existing_ft_keys = set()
@@ -138,15 +144,15 @@ async def ingest_yelp(db) -> Dict[str, Dict[str, int]]:
     ):
         existing_ft_keys.add(doc["_dedup_key"])
 
-    ft_inserted = 0
     ft_skipped = 0
+    ft_to_insert: List[Dict[str, Any]] = []
     for ft in food_trucks_candidates:
         key = business_dedup_key(ft["name"], ft["address"])
         if key in existing_ft_keys:
             ft_skipped += 1
             continue
         truck_id = f"truck_{uuid.uuid4().hex[:12]}"
-        doc = {
+        ft_to_insert.append({
             "truck_id": truck_id,
             **ft,
             "owner_id": f"source_{ft['_source']}",
@@ -155,9 +161,11 @@ async def ingest_yelp(db) -> Dict[str, Dict[str, int]]:
             "last_updated": now_dt,
             "created_at": now_iso,
             "_dedup_key": key,
-        }
-        await db.food_trucks.insert_one(doc)
-        ft_inserted += 1
+        })
+    ft_inserted = 0
+    if ft_to_insert:
+        result = await db.food_trucks.insert_many(ft_to_insert, ordered=False)
+        ft_inserted = len(result.inserted_ids)
 
     log.info(
         f"Yelp ingest done: restaurants inserted={rest_inserted} skipped={rest_skipped}; "
@@ -196,9 +204,9 @@ async def ingest_attractions(db) -> Dict[str, int]:
     ):
         existing_keys.add(doc["_dedup_key"])
 
-    inserted = 0
     skipped = 0
     now_iso = datetime.now(timezone.utc).isoformat()
+    docs_to_insert: List[Dict[str, Any]] = []
 
     for a in candidates:
         key = business_dedup_key(a["name"], a["address"])
@@ -207,7 +215,7 @@ async def ingest_attractions(db) -> Dict[str, int]:
             continue
 
         attraction_id = f"attraction_{uuid.uuid4().hex[:12]}"
-        doc = {
+        docs_to_insert.append({
             "attraction_id": attraction_id,
             **a,
             "owner_id": f"source_{a['_source']}",
@@ -216,9 +224,12 @@ async def ingest_attractions(db) -> Dict[str, int]:
             "review_count": 0,
             "created_at": now_iso,
             "_dedup_key": key,
-        }
-        await db.attractions.insert_one(doc)
-        inserted += 1
+        })
+
+    inserted = 0
+    if docs_to_insert:
+        result = await db.attractions.insert_many(docs_to_insert, ordered=False)
+        inserted = len(result.inserted_ids)
 
     log.info(f"Attractions: inserted={inserted}, skipped_duplicate={skipped}")
     return {"inserted": inserted, "skipped": skipped, "total_candidates": len(candidates)}
