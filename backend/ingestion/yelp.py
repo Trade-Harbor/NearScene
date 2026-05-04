@@ -341,6 +341,86 @@ async def debug_chain_searches() -> Dict[str, Any]:
     }
 
 
+async def debug_full_fetch() -> Dict[str, Any]:
+    """Run the full _fetch_restaurants_raw and report counts at every pass.
+    Tells us whether chain searches are reaching the unified candidate list."""
+    api_key = os.environ.get("YELP_API_KEY")
+    if not api_key:
+        return {"error": "YELP_API_KEY not set"}
+
+    radius_m = min(int(PILOT_RADIUS_MILES * MILES_TO_METERS), 40000)
+    headers = {"Authorization": f"Bearer {api_key}"}
+
+    pass1_count = 0   # rating sort
+    pass2_count = 0   # best_match sort
+    pass3_count = 0   # chain searches
+    all_businesses: List[Dict[str, Any]] = []
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        for sort_order in ("rating", "best_match"):
+            for page in range(PAGES_TO_FETCH):
+                params = {
+                    "latitude": PILOT_LAT, "longitude": PILOT_LON, "radius": radius_m,
+                    "categories": "restaurants,bars,food,foodtrucks",
+                    "limit": PER_PAGE, "offset": page * PER_PAGE, "sort_by": sort_order,
+                }
+                resp = await client.get(API_BASE, params=params, headers=headers)
+                if resp.status_code != 200:
+                    break
+                businesses = resp.json().get("businesses", [])
+                if sort_order == "rating":
+                    pass1_count += len(businesses)
+                else:
+                    pass2_count += len(businesses)
+                all_businesses.extend(businesses)
+                if len(businesses) < PER_PAGE:
+                    break
+
+        chain_tasks = [
+            client.get(API_BASE, params={
+                "term": term, "latitude": PILOT_LAT, "longitude": PILOT_LON,
+                "radius": radius_m, "limit": 5,
+            }, headers=headers)
+            for term in CHAIN_SEARCH_TERMS
+        ]
+        chain_responses = await asyncio.gather(*chain_tasks, return_exceptions=True)
+        for term, resp in zip(CHAIN_SEARCH_TERMS, chain_responses):
+            if isinstance(resp, Exception) or resp.status_code != 200:
+                continue
+            businesses = resp.json().get("businesses", [])
+            matches = [b for b in businesses
+                       if _name_matches_search_term(b.get("name"), term)]
+            pass3_count += len(matches)
+            all_businesses.extend(matches)
+
+    by_id: Dict[str, Dict[str, Any]] = {}
+    for raw in all_businesses:
+        bid = raw.get("id")
+        if bid and bid not in by_id:
+            by_id[bid] = raw
+
+    # Now classify the deduped list the same way fetch_all does
+    all_unique = list(by_id.values())
+    chain_in_unique = sum(1 for b in all_unique if _name_is_chain(b.get("name", "")))
+    fm_count = sum(1 for b in all_unique if _is_farmers_market(b))
+    ft_count = sum(1 for b in all_unique if _is_food_truck(b))
+
+    return {
+        "pass1_rating_count": pass1_count,
+        "pass2_best_match_count": pass2_count,
+        "pass3_chain_count": pass3_count,
+        "all_businesses_count": len(all_businesses),
+        "unique_after_dedup_by_id": len(all_unique),
+        "chain_tagged_in_unique": chain_in_unique,
+        "farmer_markets_in_unique": fm_count,
+        "food_trucks_in_unique": ft_count,
+        "would_go_to_restaurants": len(all_unique) - fm_count - ft_count,
+        "chain_names_in_unique": [
+            b["name"] for b in all_unique if _name_is_chain(b.get("name", ""))
+        ][:50],
+    }
+
+
 async def _fetch_restaurants_raw() -> List[Dict[str, Any]]:
     """Inner helper: returns raw deduped Yelp business dicts before normalization.
 

@@ -2145,6 +2145,17 @@ async def admin_test_yelp_chains(request: Request, token: Optional[str] = None):
     return await yelp.debug_chain_searches()
 
 
+@api_router.get("/admin/test-yelp-full")
+async def admin_test_yelp_full(request: Request, token: Optional[str] = None):
+    """Debug: run the full Yelp restaurant fetch (all 3 passes) and report
+    how many businesses came from each pass, the deduped total, and how
+    many got tagged as chains/markets/food_trucks. Confirms whether the
+    chain pass is actually reaching the unified candidate list."""
+    _check_admin(request, token)
+    from ingestion import yelp
+    return await yelp.debug_full_fetch()
+
+
 @api_router.get("/admin/test-osm")
 async def admin_test_osm(request: Request, token: Optional[str] = None):
     """Debug: run only the OSM Overpass fetch and return rich diagnostics
