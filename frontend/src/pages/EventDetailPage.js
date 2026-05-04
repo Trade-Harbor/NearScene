@@ -465,88 +465,24 @@ export default function EventDetailPage() {
                   </p>
                 </>
               ) : event.is_paid ? (
+                // User-submitted paid event during beta — internal Stripe checkout
+                // is disabled. Show price info + "tickets coming soon" rather than
+                // attempting a checkout that the backend would reject anyway.
                 <>
                   <div className="text-center mb-6">
-                    {hasDiscount && (
-                      <p className="text-sm text-muted-foreground line-through">
-                        ${event.ticket_price}
-                      </p>
-                    )}
+                    <span className="text-sm text-muted-foreground">From</span>
                     <div className="flex items-center justify-center gap-2">
-                      <span className="text-3xl font-bold">${finalPrice}</span>
+                      <span className="text-3xl font-bold">${finalPrice ?? event.ticket_price ?? '—'}</span>
                       <span className="text-muted-foreground">/ ticket</span>
                     </div>
-                    {hasDiscount && (
-                      <Badge className="mt-2 bg-destructive/10 text-destructive">
-                        Save {event.discount_percentage}%
-                      </Badge>
-                    )}
+                    <Badge variant="secondary" className="mt-2">Beta — ticketing coming soon</Badge>
                   </div>
-
-                  {ticketsRemaining !== null && ticketsRemaining > 0 ? (
-                    <>
-                      <div className="mb-4">
-                        <label className="text-sm font-medium mb-2 block">Quantity</label>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => setTicketQuantity(Math.max(1, ticketQuantity - 1))}
-                            disabled={ticketQuantity <= 1}
-                            data-testid="decrease-qty-btn"
-                          >
-                            -
-                          </Button>
-                          <span className="w-12 text-center font-medium">{ticketQuantity}</span>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => setTicketQuantity(Math.min(ticketsRemaining, ticketQuantity + 1))}
-                            disabled={ticketQuantity >= ticketsRemaining}
-                            data-testid="increase-qty-btn"
-                          >
-                            +
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="border-t border-border pt-4 mb-4">
-                        <div className="flex justify-between text-sm mb-2">
-                          <span>Subtotal</span>
-                          <span>${(finalPrice * ticketQuantity).toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm text-muted-foreground">
-                          <span>Service fee</span>
-                          <span>${(finalPrice * ticketQuantity * 0.05).toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between font-semibold mt-2 pt-2 border-t border-border">
-                          <span>Total</span>
-                          <span>${(finalPrice * ticketQuantity * 1.05).toFixed(2)}</span>
-                        </div>
-                      </div>
-
-                      <Button
-                        className="w-full rounded-full bg-gradient-to-r from-indigo-500 to-pink-500 hover:opacity-90"
-                        size="lg"
-                        onClick={handlePurchaseTicket}
-                        disabled={purchasing}
-                        data-testid="buy-tickets-btn"
-                      >
-                        <Ticket className="h-4 w-4 mr-2" />
-                        {event.external_url
-                          ? 'Get Tickets'
-                          : (purchasing ? 'Processing...' : `Buy ${ticketQuantity} Ticket${ticketQuantity > 1 ? 's' : ''}`)}
-                        {event.external_url && <ExternalLink className="h-3 w-3 ml-2" />}
-                      </Button>
-                    </>
-                  ) : (
-                    <div className="text-center py-4">
-                      <Badge variant="destructive" className="mb-2">Sold Out</Badge>
-                      <p className="text-sm text-muted-foreground">
-                        This event is no longer available for purchase.
-                      </p>
-                    </div>
-                  )}
+                  <div className="bg-muted/50 rounded-xl p-4 mb-4 text-sm text-center text-muted-foreground">
+                    Ticket purchases are disabled during the NearScene beta. Contact the
+                    event organizer directly, or reach out to{' '}
+                    <a href="mailto:steinackerr@gmail.com" className="underline text-primary">us</a>
+                    {' '}if you'd like an early-access slot for selling tickets through NearScene.
+                  </div>
                 </>
               ) : (
                 <div className="text-center">
@@ -572,34 +508,21 @@ export default function EventDetailPage() {
               )}
             </div>
 
-            {/* Promote This Event — visible only to the organizer */}
-            {user && event.organizer_id === user.user_id && !event.is_promoted && promotionPackages.length > 0 && (
+            {/* Promote This Event — beta-mode soft message for organizers */}
+            {user && event.organizer_id === user.user_id && !event.is_promoted && (
               <div className="mt-4 bg-card rounded-2xl p-6 shadow-lg dark:border dark:border-white/10" data-testid="promote-event-card">
                 <div className="flex items-center gap-2 mb-2">
                   <Sparkles className="h-5 w-5 text-amber-500" />
                   <h3 className="font-heading text-lg font-semibold">Promote This Event</h3>
                 </div>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Get featured placement and reach more local attendees.
+                <p className="text-sm text-muted-foreground mb-3">
+                  Featured placement is launching after the NearScene beta. Want early access?
                 </p>
-                <div className="space-y-2">
-                  {promotionPackages.map((pkg) => (
-                    <Button
-                      key={pkg.package_id}
-                      variant="outline"
-                      className="w-full justify-between rounded-full"
-                      onClick={() => handlePromoteEvent(pkg.package_id)}
-                      disabled={promoting}
-                      data-testid={`promote-pkg-${pkg.package_id}`}
-                    >
-                      <span className="flex flex-col items-start">
-                        <span className="font-medium">{pkg.name}</span>
-                        <span className="text-xs text-muted-foreground">{pkg.duration_days} days</span>
-                      </span>
-                      <span className="font-bold">${pkg.price}</span>
-                    </Button>
-                  ))}
-                </div>
+                <Button variant="outline" className="w-full rounded-full" asChild>
+                  <a href="mailto:steinackerr@gmail.com?subject=NearScene%20Promotion%20Early%20Access">
+                    Email us about early access
+                  </a>
+                </Button>
               </div>
             )}
 

@@ -74,28 +74,14 @@ export default function PricingPage() {
     }
   };
 
-  const handleSubscribe = async (planId) => {
+  // Beta mode: paid plans aren't active. Sending users to register/login
+  // gives them the same access (everything is free during beta) and avoids
+  // any Stripe checkout attempts.
+  const handleSubscribe = (planId) => {
     if (!isAuthenticated) {
-      navigate('/login?redirect=/pricing');
-      return;
-    }
-
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post(
-        `${API_URL}/api/subscriptions/subscribe`,
-        null,
-        {
-          params: { plan_id: planId, billing_period: billingPeriod },
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      
-      if (response.data.checkout_url) {
-        window.location.href = response.data.checkout_url;
-      }
-    } catch (error) {
-      console.error('Error subscribing:', error);
+      navigate('/register');
+    } else {
+      navigate('/dashboard');
     }
   };
 
@@ -105,21 +91,33 @@ export default function PricingPage() {
 
   return (
     <div className="min-h-screen bg-background" data-testid="pricing-page">
+      {/* Beta notice — top of pricing page */}
+      <div className="bg-amber-500/10 border-b border-amber-500/20">
+        <div className="container mx-auto px-4 md:px-6 lg:px-8 max-w-7xl py-4">
+          <p className="text-sm text-center">
+            <strong>NearScene is in beta — every feature is free.</strong> The pricing tiers below preview the
+            structure we plan to offer post-beta. Right now, just sign up and use it. No charges. No subscriptions.
+            Want to chat about a future business partnership? Email{' '}
+            <a href="mailto:steinackerr@gmail.com" className="underline font-medium">steinackerr@gmail.com</a>.
+          </p>
+        </div>
+      </div>
+
       {/* Hero Section */}
       <div className="relative overflow-hidden bg-gradient-to-b from-primary/10 to-background py-16 md:py-24">
         <div className="container mx-auto px-4 md:px-6 lg:px-8 max-w-7xl relative z-10">
           <div className="text-center max-w-3xl mx-auto">
             <Badge className="mb-4 bg-primary/10 text-primary hover:bg-primary/20">
               <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-              Simple, Transparent Pricing
+              Pricing preview · free during beta
             </Badge>
             <h1 className="font-heading text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
               Choose Your{' '}
               <span className="gradient-brand-text">NearScene</span>
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground mb-8">
-              From casual explorers to business owners, we have a plan that fits your needs.
-              Start free and upgrade anytime.
+              From casual explorers to business owners, here's what we plan to offer post-beta.
+              Today, everything is free — just sign up and use it.
             </p>
 
             {/* Billing Toggle */}
@@ -219,26 +217,19 @@ export default function PricingPage() {
                   </ul>
                 </CardContent>
                 
-                <CardFooter>
-                  {plan.tier === 'free' ? (
-                    <Button
-                      variant="outline"
-                      className="w-full rounded-full"
-                      onClick={() => navigate('/register')}
-                      disabled={isAuthenticated}
-                      data-testid={`btn-${plan.tier}`}
-                    >
-                      {isAuthenticated ? 'Current Plan' : 'Get Started Free'}
-                    </Button>
-                  ) : (
-                    <Button
-                      className={`w-full rounded-full bg-gradient-to-r ${colorClass} hover:opacity-90`}
-                      onClick={() => handleSubscribe(plan.plan_id)}
-                      disabled={isCurrentPlan(plan.tier)}
-                      data-testid={`btn-${plan.tier}`}
-                    >
-                      {isCurrentPlan(plan.tier) ? 'Current Plan' : 'Subscribe Now'}
-                    </Button>
+                <CardFooter className="flex-col gap-2 items-stretch">
+                  <Button
+                    variant={plan.tier === 'free' ? 'outline' : 'default'}
+                    className={`w-full rounded-full ${plan.tier !== 'free' ? `bg-gradient-to-r ${colorClass} hover:opacity-90` : ''}`}
+                    onClick={() => handleSubscribe(plan.plan_id)}
+                    data-testid={`btn-${plan.tier}`}
+                  >
+                    {isAuthenticated ? 'Free during beta' : 'Sign up — free during beta'}
+                  </Button>
+                  {plan.tier !== 'free' && (
+                    <p className="text-xs text-center text-muted-foreground">
+                      Pricing structure shown — not yet active
+                    </p>
                   )}
                 </CardFooter>
               </Card>
@@ -321,34 +312,39 @@ export default function PricingPage() {
               <Button
                 size="lg"
                 className="rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-90"
-                onClick={() => isAuthenticated ? navigate('/dashboard') : navigate('/register?type=business')}
+                asChild
                 data-testid="partner-cta"
               >
-                Become a Partner
-                <ChevronRight className="h-4 w-4 ml-2" />
+                <a href="mailto:steinackerr@gmail.com?subject=NearScene%20Business%20Partnership%20Interest">
+                  Email us about partnership
+                  <ChevronRight className="h-4 w-4 ml-2" />
+                </a>
               </Button>
+              <p className="text-xs text-muted-foreground mt-2">
+                Partnerships are not yet active during beta. Drop us an email to get on the early-access list.
+              </p>
             </div>
             
             <div className="grid grid-cols-2 gap-4">
               <Card className="p-6">
-                <TrendingUp className="h-8 w-8 text-blue-500 mb-3" />
-                <div className="text-2xl font-bold">50K+</div>
-                <p className="text-sm text-muted-foreground">Monthly Active Users</p>
-              </Card>
-              <Card className="p-6">
                 <Calendar className="h-8 w-8 text-purple-500 mb-3" />
-                <div className="text-2xl font-bold">1,000+</div>
-                <p className="text-sm text-muted-foreground">Events Monthly</p>
+                <div className="text-2xl font-bold">170+</div>
+                <p className="text-sm text-muted-foreground">Local events tracked</p>
               </Card>
               <Card className="p-6">
                 <Users className="h-8 w-8 text-pink-500 mb-3" />
-                <div className="text-2xl font-bold">200+</div>
-                <p className="text-sm text-muted-foreground">Business Partners</p>
+                <div className="text-2xl font-bold">300+</div>
+                <p className="text-sm text-muted-foreground">Restaurants & food trucks</p>
+              </Card>
+              <Card className="p-6">
+                <TrendingUp className="h-8 w-8 text-blue-500 mb-3" />
+                <div className="text-2xl font-bold">300+</div>
+                <p className="text-sm text-muted-foreground">Parks, beaches, attractions</p>
               </Card>
               <Card className="p-6">
                 <Shield className="h-8 w-8 text-emerald-500 mb-3" />
-                <div className="text-2xl font-bold">99.9%</div>
-                <p className="text-sm text-muted-foreground">Uptime SLA</p>
+                <div className="text-2xl font-bold">Wilmington</div>
+                <p className="text-sm text-muted-foreground">NC pilot region</p>
               </Card>
             </div>
           </div>

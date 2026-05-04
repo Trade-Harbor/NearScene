@@ -25,7 +25,42 @@ import {
   Truck,
   Plus
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { FeedbackButton } from './FeedbackButton';
+
+// Beta banner — small dismissable strip at the top of every page reminding
+// visitors NearScene is in beta. Dismissal is sticky via localStorage so
+// repeat visitors don't see it again.
+const BETA_BANNER_KEY = 'nearscene_beta_banner_dismissed';
+
+const BetaBanner = () => {
+  const [dismissed, setDismissed] = useState(true);  // start true to avoid SSR flash
+  useEffect(() => {
+    setDismissed(localStorage.getItem(BETA_BANNER_KEY) === '1');
+  }, []);
+
+  if (dismissed) return null;
+  return (
+    <div className="bg-gradient-to-r from-indigo-500 to-pink-500 text-white text-sm">
+      <div className="container mx-auto max-w-7xl px-4 py-2 flex items-center justify-between gap-3">
+        <p>
+          🎉 <strong>NearScene is in beta.</strong> Everything's free — found something off?
+          Tap <strong>Send Feedback</strong> in the corner.
+        </p>
+        <button
+          onClick={() => {
+            localStorage.setItem(BETA_BANNER_KEY, '1');
+            setDismissed(true);
+          }}
+          aria-label="Dismiss banner"
+          className="p-1 hover:bg-white/20 rounded-full transition-colors flex-shrink-0"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+};
 
 export const Navbar = () => {
   const { user, logout, isAuthenticated } = useAuth();
@@ -315,20 +350,30 @@ export const Footer = () => {
           <div>
             <h4 className="font-heading font-semibold mb-4">Support</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><span className="hover:text-foreground transition-colors cursor-pointer">Help Center</span></li>
-              <li><span className="hover:text-foreground transition-colors cursor-pointer">Contact Us</span></li>
-              <li><span className="hover:text-foreground transition-colors cursor-pointer">Privacy Policy</span></li>
-              <li><span className="hover:text-foreground transition-colors cursor-pointer">Terms of Service</span></li>
+              <li><Link to="/about" className="hover:text-foreground transition-colors">About</Link></li>
+              <li><a href="mailto:steinackerr@gmail.com" className="hover:text-foreground transition-colors">Contact</a></li>
+              <li><Link to="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link></li>
+              <li><Link to="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link></li>
             </ul>
           </div>
         </div>
-        
-        <div className="border-t border-border mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
+
+        {/* Data attributions — required by partner ToS */}
+        <div className="border-t border-border mt-8 pt-6 text-xs text-muted-foreground">
+          <p className="mb-2">
+            Restaurant and food-truck data <strong>powered by Yelp</strong>.
+            Map and attraction data <strong>© OpenStreetMap contributors</strong>.
+            Concert and sports event data via Ticketmaster Discovery API and SeatGeek.
+            Local news headlines via Google News.
+          </p>
+        </div>
+
+        <div className="border-t border-border mt-6 pt-6 flex flex-col md:flex-row justify-between items-center">
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} NearScene. All rights reserved.
+            © {new Date().getFullYear()} NearScene · Beta
           </p>
           <p className="text-sm text-muted-foreground mt-2 md:mt-0">
-            Made with love for local communities
+            Made for local communities · Wilmington, NC
           </p>
         </div>
       </div>
@@ -339,9 +384,11 @@ export const Footer = () => {
 export const Layout = ({ children }) => {
   return (
     <div className="min-h-screen flex flex-col">
+      <BetaBanner />
       <Navbar />
       <main className="flex-1">{children}</main>
       <Footer />
+      <FeedbackButton />
     </div>
   );
 };

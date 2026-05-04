@@ -22,6 +22,9 @@ import TicketSuccessPage from "./pages/TicketSuccessPage";
 import PricingPage from "./pages/PricingPage";
 import FlashDealsPage from "./pages/FlashDealsPage";
 import LoginPage, { AuthCallback } from "./pages/AuthPages";
+import PrivacyPage from "./pages/PrivacyPage";
+import TermsPage from "./pages/TermsPage";
+import AboutPage from "./pages/AboutPage";
 
 // App Router
 function AppRouter() {
@@ -51,6 +54,9 @@ function AppRouter() {
               <Route path="/my-events" element={<DashboardPage />} />
               <Route path="/my-tickets" element={<DashboardPage />} />
               <Route path="/tickets/success" element={<TicketSuccessPage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/terms" element={<TermsPage />} />
+              <Route path="/about" element={<AboutPage />} />
             </Routes>
           </Layout>
         }

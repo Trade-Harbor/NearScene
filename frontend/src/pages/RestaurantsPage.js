@@ -380,6 +380,18 @@ function RestaurantCard({ restaurant }) {
             <div className="flex items-center gap-1 text-sm">
               <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
               <span className="font-medium">{restaurant.rating}</span>
+              {restaurant.source === 'yelp' && restaurant.external_url && (
+                <a
+                  href={restaurant.external_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-xs text-muted-foreground hover:text-foreground underline ml-1"
+                  aria-label="Restaurant page on Yelp"
+                >
+                  Yelp
+                </a>
+              )}
             </div>
           )}
         </div>

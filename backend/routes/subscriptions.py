@@ -268,6 +268,12 @@ def setup_routes(db, calculate_distance, get_current_user, get_optional_user):
         user = Depends(get_current_user)
     ):
         """Subscribe to a plan"""
+        # Beta block: don't initiate Stripe checkouts during beta
+        if os.environ.get("BETA_PAYMENTS_DISABLED", "true").lower() == "true":
+            raise HTTPException(
+                status_code=503,
+                detail="Subscriptions are disabled during the NearScene beta. Email steinackerr@gmail.com if you'd like to participate in a monetization preview."
+            )
         plan = next((p for p in SUBSCRIPTION_PLANS if p["plan_id"] == plan_id), None)
         if not plan:
             raise HTTPException(status_code=400, detail="Invalid plan")
@@ -415,6 +421,12 @@ def setup_routes(db, calculate_distance, get_current_user, get_optional_user):
         user = Depends(get_current_user)
     ):
         """Create a sponsored listing"""
+        # Beta block: don't initiate Stripe checkouts during beta
+        if os.environ.get("BETA_PAYMENTS_DISABLED", "true").lower() == "true":
+            raise HTTPException(
+                status_code=503,
+                detail="Sponsored listings are disabled during the NearScene beta. Email steinackerr@gmail.com if you'd like to participate in a monetization preview."
+            )
         package = next((p for p in SPONSORED_LISTING_PACKAGES if p["package_id"] == package_id), None)
         if not package:
             raise HTTPException(status_code=400, detail="Invalid package")

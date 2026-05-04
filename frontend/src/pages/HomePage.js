@@ -102,17 +102,17 @@ export default function HomePage() {
           <div className="max-w-3xl mx-auto text-center">
             <Badge className="mb-6 bg-primary/10 text-primary hover:bg-primary/20 px-4 py-1.5" data-testid="hero-badge">
               <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-              Discover Local Events Near You
+              Wilmington, NC · Free during beta
             </Badge>
-            
+
             <h1 className="font-heading text-4xl md:text-6xl font-bold tracking-tight mb-6 animate-slide-up">
-              What's Happening{' '}
-              <span className="gradient-brand-text">Locally</span>?
+              Everything happening{' '}
+              <span className="gradient-brand-text">near you</span>
             </h1>
-            
+
             <p className="text-lg md:text-xl text-muted-foreground mb-8 animate-slide-up stagger-1">
-              Find concerts, markets, food trucks, happy hours, and local events 
-              happening right in your neighborhood.
+              Concerts, sports, restaurants, food trucks, beaches, parks, and local news —
+              all in one place. Built for Wilmington locals, free while we're in beta.
             </p>
             
             {/* Search Bar */}

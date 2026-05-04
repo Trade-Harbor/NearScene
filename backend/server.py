@@ -31,6 +31,25 @@ JWT_EXPIRATION_HOURS = 168  # 7 days
 # Commission rate for ticket sales
 COMMISSION_RATE = float(os.environ.get('COMMISSION_RATE', '0.05'))
 
+# Beta-mode toggle. While True, all payment-related endpoints return 503
+# with a clear "beta" message so accidental traffic can't create real
+# Stripe charges or subscriptions. Flip to "false" in Render when ready
+# to accept payments.
+BETA_PAYMENTS_DISABLED = os.environ.get("BETA_PAYMENTS_DISABLED", "true").lower() == "true"
+BETA_DISABLED_MESSAGE = (
+    "Payments are disabled during the NearScene beta. We're collecting "
+    "feedback first — monetization features will return after beta. "
+    "Email steinackerr@gmail.com if you'd like to participate in a "
+    "monetization preview as a business partner."
+)
+
+
+def _enforce_beta_block():
+    """Raise 503 if payments are beta-disabled. Use as a guard at the top of
+    any endpoint that would otherwise initiate a Stripe checkout."""
+    if BETA_PAYMENTS_DISABLED:
+        raise HTTPException(status_code=503, detail=BETA_DISABLED_MESSAGE)
+
 # Create the main app
 app = FastAPI(title="LocalVibe API")
 
@@ -893,6 +912,7 @@ async def get_promotion_packages():
 
 @payments_router.post("/checkout/ticket")
 async def create_ticket_checkout(purchase: TicketPurchase, request: Request, user = Depends(get_current_user)):
+    _enforce_beta_block()
     event = await db.events.find_one({"event_id": purchase.event_id}, {"_id": 0})
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -978,6 +998,7 @@ async def create_promotion_checkout(
     request: Request,
     user = Depends(get_current_user)
 ):
+    _enforce_beta_block()
     event = await db.events.find_one({"event_id": event_id}, {"_id": 0})
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -2100,6 +2121,57 @@ async def root():
 @api_router.get("/health")
 async def health():
     return {"status": "healthy"}
+
+
+# ============= FEEDBACK =============
+
+class FeedbackCreate(BaseModel):
+    feedback_type: str  # bug | idea | data | business | other
+    name: Optional[str] = None
+    email: Optional[str] = None
+    message: str
+    page_url: Optional[str] = None
+
+
+@api_router.post("/feedback")
+async def submit_feedback(data: FeedbackCreate, request: Request):
+    """Public endpoint — anyone can submit feedback during beta. Stored in
+    db.feedback for review via /api/admin/feedback."""
+    if not data.message.strip():
+        raise HTTPException(status_code=400, detail="Message is required")
+
+    feedback_id = f"fb_{uuid.uuid4().hex[:12]}"
+    doc = {
+        "feedback_id": feedback_id,
+        "feedback_type": data.feedback_type or "other",
+        "name": (data.name or "").strip() or None,
+        "email": (data.email or "").strip() or None,
+        "message": data.message.strip(),
+        "page_url": data.page_url,
+        "user_agent": request.headers.get("User-Agent", ""),
+        "ip": request.client.host if request.client else None,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "resolved": False,
+    }
+    await db.feedback.insert_one(doc)
+    return {"feedback_id": feedback_id, "status": "received"}
+
+
+@api_router.get("/admin/feedback")
+async def admin_get_feedback(
+    request: Request,
+    token: Optional[str] = None,
+    limit: int = 100,
+    feedback_type: Optional[str] = None,
+):
+    """Admin: review all feedback submissions, newest first."""
+    _check_admin(request, token)
+    query: dict = {}
+    if feedback_type:
+        query["feedback_type"] = feedback_type
+    cursor = db.feedback.find(query, {"_id": 0}).sort("created_at", -1).limit(limit)
+    items = await cursor.to_list(limit)
+    return {"count": len(items), "items": items}
 
 
 # ============= LOCAL NEWS =============

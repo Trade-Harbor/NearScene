@@ -272,8 +272,21 @@ export default function AttractionsPage() {
             </div>
           )}
 
-          <div className="mt-3 text-sm text-muted-foreground">
-            {attractions.length} attraction{attractions.length !== 1 ? 's' : ''} found within {radius} miles
+          <div className="mt-3 text-sm text-muted-foreground flex items-center justify-between gap-2 flex-wrap">
+            <span>
+              {attractions.length} attraction{attractions.length !== 1 ? 's' : ''} found within {radius} miles
+            </span>
+            <span className="text-xs">
+              Map data ©{' '}
+              <a
+                href="https://www.openstreetmap.org/copyright"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-foreground"
+              >
+                OpenStreetMap contributors
+              </a>
+            </span>
           </div>
         </div>
       </div>
