@@ -27,8 +27,14 @@ from .utils import PILOT_LAT, PILOT_LON, PILOT_RADIUS_MILES
 
 log = logging.getLogger(__name__)
 
-# Public Overpass API endpoint. Several mirrors exist; pick the most reliable.
-OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+# Public Overpass mirrors. We try them in order — main first, then community
+# fallbacks. Free Overpass instances rate-limit aggressively so multi-mirror
+# is essential for reliable daily ingestion.
+OVERPASS_URLS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
+]
 
 MILES_TO_METERS = 1609.34
 
@@ -106,8 +112,10 @@ out center;
 
 
 async def _post_overpass(query: str) -> Tuple[int, str, Dict[str, Any]]:
-    """Send the Overpass POST request. Mirrors `curl --data-urlencode data=...`
-    exactly, since httpx.post(data={"data": query}) was eating multi-line content.
+    """Send the Overpass POST request. Tries each mirror in order until one
+    returns valid JSON with a non-empty `elements` list (or until all fail).
+    Mirrors `curl --data-urlencode data=...` exactly, since
+    httpx.post(data={"data": query}) was eating multi-line content.
 
     Returns: (status_code, raw_text_first_500, parsed_json_or_empty)
     """
@@ -116,25 +124,45 @@ async def _post_overpass(query: str) -> Tuple[int, str, Dict[str, Any]]:
         "Content-Type": "application/x-www-form-urlencoded",
         "User-Agent": "NearScene-Wilmington/0.1 (steinackerr@gmail.com)",
     }
-    try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            resp = await client.post(OVERPASS_URL, content=body, headers=headers)
-    except httpx.HTTPError as e:
-        log.error(f"Overpass HTTP error: {e}")
-        return 0, str(e), {}
 
-    text_preview = resp.text[:500] if resp.text else ""
-    log.info(f"Overpass status={resp.status_code} bytes={len(resp.content)}")
+    last_status = 0
+    last_preview = ""
 
-    if resp.status_code != 200:
-        log.error(f"Overpass non-200 body: {text_preview}")
-        return resp.status_code, text_preview, {}
+    for url in OVERPASS_URLS:
+        try:
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                resp = await client.post(url, content=body, headers=headers)
+        except httpx.HTTPError as e:
+            log.warning(f"Overpass mirror {url} HTTP error: {e}; trying next")
+            last_preview = str(e)
+            continue
 
-    try:
-        return resp.status_code, text_preview, resp.json()
-    except ValueError as e:
-        log.error(f"Overpass JSON parse error: {e}; first chars: {text_preview}")
-        return resp.status_code, text_preview, {}
+        text_preview = resp.text[:500] if resp.text else ""
+        last_status = resp.status_code
+        last_preview = text_preview
+        log.info(f"Overpass mirror {url}: status={resp.status_code} bytes={len(resp.content)}")
+
+        if resp.status_code != 200:
+            log.warning(f"Overpass mirror {url} non-200 body: {text_preview}; trying next")
+            continue
+
+        try:
+            data = resp.json()
+        except ValueError as e:
+            log.warning(f"Overpass mirror {url} JSON parse error: {e}; trying next")
+            continue
+
+        # Empty elements means rate-limit / quota answer, not real "nothing here".
+        # OSM has hundreds of features in any major US metro radius.
+        elements = data.get("elements", [])
+        if not elements:
+            log.warning(f"Overpass mirror {url} returned 0 elements; trying next")
+            continue
+
+        return resp.status_code, text_preview, data
+
+    # All mirrors failed
+    return last_status, last_preview, {}
 
 
 async def _fetch_and_normalize() -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
