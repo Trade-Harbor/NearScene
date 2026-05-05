@@ -95,10 +95,10 @@ export default function PricingPage() {
       <div className="bg-amber-500/10 border-b border-amber-500/20">
         <div className="container mx-auto px-4 md:px-6 lg:px-8 max-w-7xl py-4">
           <p className="text-sm text-center">
-            <strong>NearScene is in beta — every feature is free.</strong> The pricing tiers below preview the
+            <strong>LocalDrift is in beta — every feature is free.</strong> The pricing tiers below preview the
             structure we plan to offer post-beta. Right now, just sign up and use it. No charges. No subscriptions.
             Want to chat about a future business partnership? Email{' '}
-            <a href="mailto:steinackerr@gmail.com" className="underline font-medium">steinackerr@gmail.com</a>.
+            <a href="mailto:hello@localdrift.app" className="underline font-medium">hello@localdrift.app</a>.
           </p>
         </div>
       </div>
@@ -113,7 +113,7 @@ export default function PricingPage() {
             </Badge>
             <h1 className="font-heading text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
               Choose Your{' '}
-              <span className="gradient-brand-text">NearScene</span>
+              <span className="gradient-brand-text">LocalDrift</span>
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground mb-8">
               From casual explorers to business owners, here's what we plan to offer post-beta.
@@ -285,7 +285,7 @@ export default function PricingPage() {
                 For Businesses
               </Badge>
               <h2 className="font-heading text-3xl md:text-4xl font-bold mb-6">
-                Partner With NearScene
+                Partner With LocalDrift
               </h2>
               <p className="text-lg text-muted-foreground mb-6">
                 Reach thousands of local event-goers and grow your business with our partnership program.
@@ -315,7 +315,7 @@ export default function PricingPage() {
                 asChild
                 data-testid="partner-cta"
               >
-                <a href="mailto:steinackerr@gmail.com?subject=NearScene%20Business%20Partnership%20Interest">
+                <a href="mailto:hello@localdrift.app?subject=LocalDrift%20Business%20Partnership%20Interest">
                   Email us about partnership
                   <ChevronRight className="h-4 w-4 ml-2" />
                 </a>
@@ -370,7 +370,7 @@ export default function PricingPage() {
               },
               {
                 q: "How does the commission work?",
-                a: "We take a small percentage of each paid ticket sale processed through NearScene. This helps us maintain the platform and provide support. Business and Partner plans enjoy reduced rates."
+                a: "We take a small percentage of each paid ticket sale processed through LocalDrift. This helps us maintain the platform and provide support. Business and Partner plans enjoy reduced rates."
               },
               {
                 q: "Is there a contract or commitment?",

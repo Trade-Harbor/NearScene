@@ -29,9 +29,9 @@ import { useState, useEffect } from 'react';
 import { FeedbackButton } from './FeedbackButton';
 
 // Beta banner — small dismissable strip at the top of every page reminding
-// visitors NearScene is in beta. Dismissal is sticky via localStorage so
+// visitors LocalDrift is in beta. Dismissal is sticky via localStorage so
 // repeat visitors don't see it again.
-const BETA_BANNER_KEY = 'nearscene_beta_banner_dismissed';
+const BETA_BANNER_KEY = 'localdrift_beta_banner_dismissed';
 
 const BetaBanner = () => {
   const [dismissed, setDismissed] = useState(true);  // start true to avoid SSR flash
@@ -44,7 +44,7 @@ const BetaBanner = () => {
     <div className="bg-gradient-to-r from-indigo-500 to-pink-500 text-white text-sm">
       <div className="container mx-auto max-w-7xl px-4 py-2 flex items-center justify-between gap-3">
         <p>
-          🎉 <strong>NearScene is in beta.</strong> Everything's free — found something off?
+          🎉 <strong>LocalDrift is in beta.</strong> Everything's free — found something off?
           Tap <strong>Send Feedback</strong> in the corner.
         </p>
         <button
@@ -83,7 +83,7 @@ export const Navbar = () => {
             <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center">
               <span className="text-white font-bold text-lg font-heading">N</span>
             </div>
-            <span className="font-heading font-bold text-xl gradient-brand-text hidden sm:block">NearScene</span>
+            <span className="font-heading font-bold text-xl gradient-brand-text hidden sm:block">LocalDrift</span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -320,7 +320,7 @@ export const Footer = () => {
               <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center">
                 <span className="text-white font-bold font-heading">N</span>
               </div>
-              <span className="font-heading font-bold text-lg">NearScene</span>
+              <span className="font-heading font-bold text-lg">LocalDrift</span>
             </Link>
             <p className="text-sm text-muted-foreground">
               Discover what's happening in your community. Events, food trucks, and local experiences.
@@ -351,7 +351,7 @@ export const Footer = () => {
             <h4 className="font-heading font-semibold mb-4">Support</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li><Link to="/about" className="hover:text-foreground transition-colors">About</Link></li>
-              <li><a href="mailto:steinackerr@gmail.com" className="hover:text-foreground transition-colors">Contact</a></li>
+              <li><a href="mailto:hello@localdrift.app" className="hover:text-foreground transition-colors">Contact</a></li>
               <li><Link to="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link></li>
               <li><Link to="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link></li>
             </ul>
@@ -370,7 +370,7 @@ export const Footer = () => {
 
         <div className="border-t border-border mt-6 pt-6 flex flex-col md:flex-row justify-between items-center">
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} NearScene · Beta
+            © {new Date().getFullYear()} LocalDrift · Beta
           </p>
           <p className="text-sm text-muted-foreground mt-2 md:mt-0">
             Made for local communities · Wilmington, NC

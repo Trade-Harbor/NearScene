@@ -1,6 +1,6 @@
-# NearScene Ingestion Pipeline
+# LocalDrift Ingestion Pipeline
 
-Pulls real event/restaurant data from public APIs and merges it into the NearScene
+Pulls real event/restaurant data from public APIs and merges it into the LocalDrift
 database. Pilot region: **Wilmington, NC** + 30-mile radius.
 
 ## What it does
@@ -77,7 +77,7 @@ or move the pilot:
 ## Adding a new source
 
 1. Create `backend/ingestion/<source>.py` with an async `fetch_events()` (or
-   `fetch_restaurants()`) function that returns a list of dicts in NearScene's
+   `fetch_restaurants()`) function that returns a list of dicts in LocalDrift's
    schema (see `ticketmaster.py` for the canonical event shape).
 2. Mark each record with `_source`, `_source_id`, `_source_url`.
 3. Import and call from `runner.py`.

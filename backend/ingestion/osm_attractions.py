@@ -59,7 +59,7 @@ TYPE_STOCK_IMAGES = {
 }
 DEFAULT_STOCK_IMAGE = TYPE_STOCK_IMAGES["attraction"]
 
-# Map OSM tags to NearScene attraction_type. Order matters — first match wins.
+# Map OSM tags to LocalDrift attraction_type. Order matters — first match wins.
 OSM_TYPE_MAP = [
     # (key, value, attraction_type, default_amenities, mood_tags, default_image)
     ("leisure", "park", "park", ["walking_trails"], ["family_friendly", "outdoor", "dog_friendly"], None),
@@ -127,7 +127,7 @@ async def _post_overpass(query: str) -> Tuple[int, str, Dict[str, Any]]:
     body = urlencode({"data": query})
     headers = {
         "Content-Type": "application/x-www-form-urlencoded",
-        "User-Agent": "NearScene-Wilmington/0.1 (steinackerr@gmail.com)",
+        "User-Agent": "LocalDrift-Wilmington/0.1 (hello@localdrift.app)",
     }
 
     last_status = 0

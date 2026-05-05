@@ -37,9 +37,9 @@ COMMISSION_RATE = float(os.environ.get('COMMISSION_RATE', '0.05'))
 # to accept payments.
 BETA_PAYMENTS_DISABLED = os.environ.get("BETA_PAYMENTS_DISABLED", "true").lower() == "true"
 BETA_DISABLED_MESSAGE = (
-    "Payments are disabled during the NearScene beta. We're collecting "
+    "Payments are disabled during the LocalDrift beta. We're collecting "
     "feedback first — monetization features will return after beta. "
-    "Email steinackerr@gmail.com if you'd like to participate in a "
+    "Email hello@localdrift.app if you'd like to participate in a "
     "monetization preview as a business partner."
 )
 
@@ -51,7 +51,7 @@ def _enforce_beta_block():
         raise HTTPException(status_code=503, detail=BETA_DISABLED_MESSAGE)
 
 # Create the main app
-app = FastAPI(title="LocalVibe API")
+app = FastAPI(title="LocalDrift API")
 
 # Create routers
 api_router = APIRouter(prefix="/api")
@@ -2116,7 +2116,7 @@ async def seed_data():
 
 @api_router.get("/")
 async def root():
-    return {"message": "LocalVibe API v1.0", "status": "running"}
+    return {"message": "LocalDrift API v1.0", "status": "running"}
 
 @api_router.get("/health")
 async def health():

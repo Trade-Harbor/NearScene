@@ -369,7 +369,7 @@ export default function HomePage() {
             </h2>
             <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
               Whether you're hosting a garage sale, organizing a community event, or running a business,
-              NearScene helps you reach your local audience.
+              LocalDrift helps you reach your local audience.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button 

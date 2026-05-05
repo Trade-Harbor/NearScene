@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '../components/ui/button';
 
-// Template Terms of Service for NearScene's beta period.
+// Template Terms of Service for LocalDrift's beta period.
 // Covers user-generated content rules, liability disclaimer, and ToS for the
 // beta period. Have a lawyer review before exiting beta / accepting payments.
 export default function TermsPage() {
@@ -14,7 +14,7 @@ export default function TermsPage() {
         <Button variant="ghost" size="sm" className="mb-6" asChild>
           <Link to="/">
             <ArrowLeft className="h-4 w-4 mr-1" />
-            Back to NearScene
+            Back to LocalDrift
           </Link>
         </Button>
 
@@ -25,7 +25,7 @@ export default function TermsPage() {
           <section>
             <h2 className="font-heading text-2xl font-semibold mb-3">1. Welcome — and what this is</h2>
             <p>
-              NearScene is a local-discovery web app currently in beta, focused on the
+              LocalDrift is a local-discovery web app currently in beta, focused on the
               Wilmington, NC area. By creating an account or using the site, you agree to
               these Terms of Service.
             </p>
@@ -39,7 +39,7 @@ export default function TermsPage() {
           <section>
             <h2 className="font-heading text-2xl font-semibold mb-3">2. Beta period</h2>
             <p>
-              NearScene is in active beta. The service is provided <strong>as-is</strong>,
+              LocalDrift is in active beta. The service is provided <strong>as-is</strong>,
               may be unavailable at any time, and may change without notice. Features
               described as "coming soon" or "post-beta" are aspirational and not guaranteed.
               All features are currently free; pricing structures shown on the Pricing page
@@ -51,7 +51,7 @@ export default function TermsPage() {
           <section>
             <h2 className="font-heading text-2xl font-semibold mb-3">3. Eligibility and accounts</h2>
             <ul className="list-disc pl-6 space-y-2">
-              <li>You must be at least 13 years old to use NearScene.</li>
+              <li>You must be at least 13 years old to use LocalDrift.</li>
               <li>You're responsible for keeping your account credentials secure.</li>
               <li>One account per person; please don't impersonate others.</li>
               <li>Account information you provide should be accurate.</li>
@@ -62,7 +62,7 @@ export default function TermsPage() {
             <h2 className="font-heading text-2xl font-semibold mb-3">4. User content</h2>
             <p>
               You retain ownership of anything you post (forum posts, comments, ratings,
-              event listings). By posting, you grant NearScene a non-exclusive license to
+              event listings). By posting, you grant LocalDrift a non-exclusive license to
               display that content within the service.
             </p>
             <p className="mt-3"><strong>You may not post content that:</strong></p>
@@ -84,14 +84,14 @@ export default function TermsPage() {
           <section>
             <h2 className="font-heading text-2xl font-semibold mb-3">5. Third-party data</h2>
             <p>
-              NearScene aggregates publicly available data from third parties including
+              LocalDrift aggregates publicly available data from third parties including
               Ticketmaster, SeatGeek, Yelp, OpenStreetMap, and Google News. We don't
               guarantee the accuracy, completeness, or availability of that data. Always
               verify event details (dates, prices, addresses) with the official source
               before making plans.
             </p>
             <p className="mt-3">
-              Clicking out from NearScene to Ticketmaster, Yelp, or any other partner site
+              Clicking out from LocalDrift to Ticketmaster, Yelp, or any other partner site
               subjects you to their terms and privacy policies — not ours.
             </p>
           </section>
@@ -99,10 +99,10 @@ export default function TermsPage() {
           <section>
             <h2 className="font-heading text-2xl font-semibold mb-3">6. Business listings</h2>
             <p>
-              Businesses listed on NearScene appear because they are publicly listed on
+              Businesses listed on LocalDrift appear because they are publicly listed on
               Yelp, Ticketmaster, OpenStreetMap, or were submitted by users. A listing
               does not imply endorsement, partnership, or any business relationship between
-              that business and NearScene. If you are a business owner and would like
+              that business and LocalDrift. If you are a business owner and would like
               your listing removed or corrected, contact us.
             </p>
           </section>
@@ -110,7 +110,7 @@ export default function TermsPage() {
           <section>
             <h2 className="font-heading text-2xl font-semibold mb-3">7. Payments</h2>
             <p>
-              <strong>NearScene does not currently process payments during the beta.</strong>
+              <strong>LocalDrift does not currently process payments during the beta.</strong>
               Pricing tiers shown on the Pricing page are not active. Any future paid
               features will be clearly opt-in and will require explicit acceptance of
               additional payment terms before any charges are made.
@@ -130,7 +130,7 @@ export default function TermsPage() {
           <section>
             <h2 className="font-heading text-2xl font-semibold mb-3">9. Limitation of liability</h2>
             <p>
-              To the maximum extent permitted by law, NearScene and its operator shall not
+              To the maximum extent permitted by law, LocalDrift and its operator shall not
               be liable for any indirect, incidental, special, consequential, or punitive
               damages, including loss of profits, data, use, or goodwill, arising out of
               your use of the service.
@@ -140,7 +140,7 @@ export default function TermsPage() {
           <section>
             <h2 className="font-heading text-2xl font-semibold mb-3">10. Termination</h2>
             <p>
-              You can stop using NearScene any time and request account deletion via the
+              You can stop using LocalDrift any time and request account deletion via the
               email below. We may suspend or terminate accounts that violate these terms.
               The beta service may be discontinued at any time.
             </p>
@@ -159,7 +159,7 @@ export default function TermsPage() {
           <section>
             <h2 className="font-heading text-2xl font-semibold mb-3">12. Contact</h2>
             <p>
-              Questions about these terms? Email <a href="mailto:steinackerr@gmail.com" className="text-primary underline">steinackerr@gmail.com</a> or use the "Send Feedback" button on any page.
+              Questions about these terms? Email <a href="mailto:hello@localdrift.app" className="text-primary underline">hello@localdrift.app</a> or use the "Send Feedback" button on any page.
             </p>
           </section>
         </div>

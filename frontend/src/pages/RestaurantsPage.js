@@ -324,7 +324,7 @@ export default function RestaurantsPage() {
 function RestaurantCard({ restaurant }) {
   const navigate = useNavigate();
 
-  // Click the card to view full restaurant details on NearScene.
+  // Click the card to view full restaurant details on LocalDrift.
   // Inner action buttons use stopPropagation so they don't re-trigger the card.
   const handleCardClick = () => {
     navigate(`/restaurants/${restaurant.restaurant_id}`);

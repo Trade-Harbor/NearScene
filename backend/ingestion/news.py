@@ -37,7 +37,7 @@ def _build_query() -> str:
 
 
 async def fetch_news() -> List[Dict[str, Any]]:
-    """Fetch local news items for the pilot region. Returns NearScene-shape news docs."""
+    """Fetch local news items for the pilot region. Returns LocalDrift-shape news docs."""
     query = _build_query()
     params = {"q": query, "hl": "en-US", "gl": "US", "ceid": "US:en"}
 
@@ -66,7 +66,7 @@ async def fetch_news() -> List[Dict[str, Any]]:
 
 
 def _normalize_item(item: ET.Element) -> Optional[Dict[str, Any]]:
-    """Convert an RSS <item> to NearScene's news doc shape."""
+    """Convert an RSS <item> to LocalDrift's news doc shape."""
     title = _text(item, "title")
     link = _text(item, "link")
     if not title or not link:

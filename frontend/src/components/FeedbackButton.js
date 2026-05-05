@@ -55,7 +55,7 @@ export function FeedbackButton() {
       setOpen(false);
     } catch (err) {
       console.error('Feedback submit error', err);
-      toast.error('Could not send — try again or email steinackerr@gmail.com');
+      toast.error('Could not send — try again or email hello@localdrift.app');
     } finally {
       setSubmitting(false);
     }
@@ -98,7 +98,7 @@ export function FeedbackButton() {
 
           <form onSubmit={handleSubmit} className="p-4 space-y-3">
             <p className="text-xs text-muted-foreground">
-              NearScene is in beta — your feedback shapes what gets built next.
+              LocalDrift is in beta — your feedback shapes what gets built next.
             </p>
 
             <div>

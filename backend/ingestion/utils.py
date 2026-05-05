@@ -137,7 +137,7 @@ def parse_iso_safe(s: Optional[str]) -> Optional[datetime]:
 
 
 def map_category_from_text(text: str) -> str:
-    """Best-effort mapping from external category strings to NearScene categories."""
+    """Best-effort mapping from external category strings to LocalDrift categories."""
     if not text:
         return "other"
     t = text.lower()

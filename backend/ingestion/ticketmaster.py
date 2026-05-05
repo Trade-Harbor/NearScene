@@ -25,7 +25,7 @@ API_BASE = "https://app.ticketmaster.com/discovery/v2/events.json"
 
 
 async def fetch_events() -> List[Dict[str, Any]]:
-    """Fetch upcoming events near the pilot region. Returns list of NearScene-shape event docs.
+    """Fetch upcoming events near the pilot region. Returns list of LocalDrift-shape event docs.
 
     Empty list (with a warning log) if the API key is missing — keeps ingestion runs resilient.
     """
@@ -66,7 +66,7 @@ async def fetch_events() -> List[Dict[str, Any]]:
 
 
 def _normalize_event(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """Convert one Ticketmaster event to NearScene's event document shape."""
+    """Convert one Ticketmaster event to LocalDrift's event document shape."""
     title = raw.get("name")
     if not title:
         return None

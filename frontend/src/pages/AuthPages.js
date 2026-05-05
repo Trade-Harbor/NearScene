@@ -80,7 +80,7 @@ export default function LoginPage() {
             <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center mx-auto mb-4">
               <span className="text-white font-bold text-xl font-heading">L</span>
             </div>
-            <h1 className="font-heading text-2xl font-bold">Welcome to NearScene</h1>
+            <h1 className="font-heading text-2xl font-bold">Welcome to LocalDrift</h1>
             <p className="text-muted-foreground mt-1">Discover what's happening locally</p>
           </div>
 

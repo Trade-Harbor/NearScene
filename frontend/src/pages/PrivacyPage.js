@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '../components/ui/button';
 
-// Template Privacy Policy for NearScene's beta period.
+// Template Privacy Policy for LocalDrift's beta period.
 // Generic "small US web app" coverage — collects email, location, forum posts,
 // uses third-party APIs (Yelp, Ticketmaster, SeatGeek, OpenStreetMap, Google News).
 // Have a lawyer review before scaling commercially.
@@ -15,7 +15,7 @@ export default function PrivacyPage() {
         <Button variant="ghost" size="sm" className="mb-6" asChild>
           <Link to="/">
             <ArrowLeft className="h-4 w-4 mr-1" />
-            Back to NearScene
+            Back to LocalDrift
           </Link>
         </Button>
 
@@ -26,13 +26,13 @@ export default function PrivacyPage() {
           <section>
             <h2 className="font-heading text-2xl font-semibold mb-3">Overview</h2>
             <p>
-              NearScene ("we", "our", "us") is a local-discovery web app currently in beta,
+              LocalDrift ("we", "our", "us") is a local-discovery web app currently in beta,
               focused on the Wilmington, NC area. This Privacy Policy explains what
               information we collect, how we use it, and your choices.
             </p>
             <p className="text-sm text-muted-foreground italic">
               We are a single-operator beta product. If you have questions, use the
-              "Send Feedback" button on any page or email steinackerr@gmail.com.
+              "Send Feedback" button on any page or email hello@localdrift.app.
             </p>
           </section>
 
@@ -86,8 +86,8 @@ export default function PrivacyPage() {
           <section>
             <h2 className="font-heading text-2xl font-semibold mb-3">Third-party data sources</h2>
             <p>
-              NearScene aggregates publicly available local data from the following sources.
-              Visiting NearScene does not transmit your information to these providers; we
+              LocalDrift aggregates publicly available local data from the following sources.
+              Visiting LocalDrift does not transmit your information to these providers; we
               fetch their data server-side on a daily schedule.
             </p>
             <ul className="list-disc pl-6 space-y-2">
@@ -117,7 +117,7 @@ export default function PrivacyPage() {
             <p>
               Account data is retained as long as your account exists. Content you post
               remains visible until you delete it or your account. To delete your account
-              and associated data, contact steinackerr@gmail.com — we'll remove your data
+              and associated data, contact hello@localdrift.app — we'll remove your data
               within 30 days.
             </p>
           </section>
@@ -141,7 +141,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="font-heading text-2xl font-semibold mb-3">Children</h2>
             <p>
-              NearScene is not directed at children under 13. We do not knowingly collect
+              LocalDrift is not directed at children under 13. We do not knowingly collect
               information from children under 13. If you believe a child has created an
               account, contact us and we'll delete it.
             </p>
@@ -171,7 +171,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="font-heading text-2xl font-semibold mb-3">Contact</h2>
             <p>
-              Questions or requests? Email <a href="mailto:steinackerr@gmail.com" className="text-primary underline">steinackerr@gmail.com</a> or use the
+              Questions or requests? Email <a href="mailto:hello@localdrift.app" className="text-primary underline">hello@localdrift.app</a> or use the
               "Send Feedback" button on any page.
             </p>
           </section>

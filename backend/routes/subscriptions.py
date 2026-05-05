@@ -1,5 +1,5 @@
 """
-Subscription and Premium Feature Routes for LocalVibe
+Subscription and Premium Feature Routes for LocalDrift
 
 Monetization Model:
 1. Freemium: Free basic access, premium features via subscription
@@ -83,7 +83,7 @@ SUBSCRIPTION_PLANS = [
     },
     {
         "plan_id": "plan_basic",
-        "name": "LocalVibe Plus",
+        "name": "LocalDrift Plus",
         "tier": "basic",
         "price_monthly": 4.99,
         "price_yearly": 47.88,  # 20% discount
@@ -100,7 +100,7 @@ SUBSCRIPTION_PLANS = [
     },
     {
         "plan_id": "plan_premium",
-        "name": "LocalVibe Premium",
+        "name": "LocalDrift Premium",
         "tier": "premium",
         "price_monthly": 9.99,
         "price_yearly": 95.88,  # 20% discount
@@ -272,7 +272,7 @@ def setup_routes(db, calculate_distance, get_current_user, get_optional_user):
         if os.environ.get("BETA_PAYMENTS_DISABLED", "true").lower() == "true":
             raise HTTPException(
                 status_code=503,
-                detail="Subscriptions are disabled during the NearScene beta. Email steinackerr@gmail.com if you'd like to participate in a monetization preview."
+                detail="Subscriptions are disabled during the LocalDrift beta. Email hello@localdrift.app if you'd like to participate in a monetization preview."
             )
         plan = next((p for p in SUBSCRIPTION_PLANS if p["plan_id"] == plan_id), None)
         if not plan:
@@ -425,7 +425,7 @@ def setup_routes(db, calculate_distance, get_current_user, get_optional_user):
         if os.environ.get("BETA_PAYMENTS_DISABLED", "true").lower() == "true":
             raise HTTPException(
                 status_code=503,
-                detail="Sponsored listings are disabled during the NearScene beta. Email steinackerr@gmail.com if you'd like to participate in a monetization preview."
+                detail="Sponsored listings are disabled during the LocalDrift beta. Email hello@localdrift.app if you'd like to participate in a monetization preview."
             )
         package = next((p for p in SPONSORED_LISTING_PACKAGES if p["package_id"] == package_id), None)
         if not package:

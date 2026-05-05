@@ -9,11 +9,11 @@ export default function AboutPage() {
         <Button variant="ghost" size="sm" className="mb-6" asChild>
           <Link to="/">
             <ArrowLeft className="h-4 w-4 mr-1" />
-            Back to NearScene
+            Back to LocalDrift
           </Link>
         </Button>
 
-        <h1 className="font-heading text-4xl font-bold mb-2">About NearScene</h1>
+        <h1 className="font-heading text-4xl font-bold mb-2">About LocalDrift</h1>
         <p className="text-muted-foreground mb-8">
           A local-discovery app for Wilmington, NC — currently in beta.
         </p>
@@ -21,7 +21,7 @@ export default function AboutPage() {
         <section className="mb-8">
           <h2 className="font-heading text-2xl font-semibold mb-3">What it is</h2>
           <p className="text-muted-foreground leading-relaxed">
-            NearScene pulls together everything happening near you into one place — concerts
+            LocalDrift pulls together everything happening near you into one place — concerts
             and sporting events, restaurants and food trucks, beaches and parks, local news
             and a community forum — instead of jumping between Ticketmaster, Yelp, Facebook
             events, and a dozen other places.
@@ -79,7 +79,7 @@ export default function AboutPage() {
         <section className="mb-8">
           <h2 className="font-heading text-2xl font-semibold mb-3">Why beta</h2>
           <p className="text-muted-foreground leading-relaxed">
-            NearScene is being built by one person and is genuinely new — this is the
+            LocalDrift is being built by one person and is genuinely new — this is the
             first time it's been shared publicly. Everything is free during the beta
             because the goal is to figure out whether real people in Wilmington find it
             useful before adding any monetization. Your feedback shapes what gets built next.
@@ -103,7 +103,7 @@ export default function AboutPage() {
         <section className="mb-8">
           <h2 className="font-heading text-2xl font-semibold mb-3">Where the data comes from</h2>
           <p className="text-muted-foreground leading-relaxed mb-3">
-            NearScene aggregates publicly available data from:
+            LocalDrift aggregates publicly available data from:
           </p>
           <ul className="list-disc pl-6 space-y-1 text-muted-foreground text-sm">
             <li><strong>Ticketmaster Discovery API</strong> — concerts, sports, theater</li>
@@ -122,8 +122,8 @@ export default function AboutPage() {
           </h2>
           <p className="text-muted-foreground text-sm mb-3">
             Click the floating Send Feedback button on any page, or email{' '}
-            <a href="mailto:steinackerr@gmail.com" className="text-primary underline">
-              steinackerr@gmail.com
+            <a href="mailto:hello@localdrift.app" className="text-primary underline">
+              hello@localdrift.app
             </a>.
           </p>
           <p className="text-xs text-muted-foreground">

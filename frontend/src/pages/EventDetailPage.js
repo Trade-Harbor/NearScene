@@ -141,7 +141,7 @@ export default function EventDetailPage() {
 
   const handlePurchaseTicket = async () => {
     // Externally-ingested events (Ticketmaster, SeatGeek) link out to the
-    // original ticketing site instead of using NearScene's Stripe checkout —
+    // original ticketing site instead of using LocalDrift's Stripe checkout —
     // we don't actually sell those tickets ourselves.
     if (event.external_url) {
       window.open(event.external_url, '_blank', 'noopener,noreferrer');
@@ -478,10 +478,10 @@ export default function EventDetailPage() {
                     <Badge variant="secondary" className="mt-2">Beta — ticketing coming soon</Badge>
                   </div>
                   <div className="bg-muted/50 rounded-xl p-4 mb-4 text-sm text-center text-muted-foreground">
-                    Ticket purchases are disabled during the NearScene beta. Contact the
+                    Ticket purchases are disabled during the LocalDrift beta. Contact the
                     event organizer directly, or reach out to{' '}
-                    <a href="mailto:steinackerr@gmail.com" className="underline text-primary">us</a>
-                    {' '}if you'd like an early-access slot for selling tickets through NearScene.
+                    <a href="mailto:hello@localdrift.app" className="underline text-primary">us</a>
+                    {' '}if you'd like an early-access slot for selling tickets through LocalDrift.
                   </div>
                 </>
               ) : (
@@ -516,10 +516,10 @@ export default function EventDetailPage() {
                   <h3 className="font-heading text-lg font-semibold">Promote This Event</h3>
                 </div>
                 <p className="text-sm text-muted-foreground mb-3">
-                  Featured placement is launching after the NearScene beta. Want early access?
+                  Featured placement is launching after the LocalDrift beta. Want early access?
                 </p>
                 <Button variant="outline" className="w-full rounded-full" asChild>
-                  <a href="mailto:steinackerr@gmail.com?subject=NearScene%20Promotion%20Early%20Access">
+                  <a href="mailto:hello@localdrift.app?subject=LocalDrift%20Promotion%20Early%20Access">
                     Email us about early access
                   </a>
                 </Button>

@@ -76,7 +76,7 @@ LEVELS = [
     {"level": 7, "name": "Community Star", "min_points": 1200},
     {"level": 8, "name": "Local Legend", "min_points": 2000},
     {"level": 9, "name": "City Champion", "min_points": 3500},
-    {"level": 10, "name": "LocalVibe Master", "min_points": 5000},
+    {"level": 10, "name": "LocalDrift Master", "min_points": 5000},
 ]
 
 # Points Configuration

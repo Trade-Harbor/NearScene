@@ -46,7 +46,7 @@ def create_checkout_session(
     success_url: str,
     cancel_url: str,
     metadata: Optional[Dict[str, str]] = None,
-    product_name: str = "NearScene Purchase",
+    product_name: str = "LocalDrift Purchase",
 ) -> CheckoutSession:
     """Create a Stripe Checkout Session for a one-time payment."""
     _configure()

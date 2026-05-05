@@ -224,7 +224,7 @@ def _next_saturday_morning() -> datetime:
 
 
 def _normalize_market_event(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """Convert a Yelp farmers-market business into a NearScene event.
+    """Convert a Yelp farmers-market business into a LocalDrift event.
 
     Yelp gives us location + rating but no schedule. We use 'next Saturday
     9 AM' as a placeholder start time so the market shows up on the markets
@@ -509,7 +509,7 @@ async def _fetch_restaurants_raw() -> List[Dict[str, Any]]:
 
 
 def _normalize_food_truck(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """Map a Yelp food-truck business to NearScene's FoodTruck doc shape."""
+    """Map a Yelp food-truck business to LocalDrift's FoodTruck doc shape."""
     name = raw.get("name")
     if not name:
         return None
@@ -587,13 +587,13 @@ def _normalize_restaurant(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     cuisine = categories[0]["title"] if categories else "Restaurant"
     category_tags = [c.get("alias") for c in categories if c.get("alias")]
 
-    # Yelp returns price as "$", "$$", "$$$", "$$$$" — map to NearScene's int 1-4.
+    # Yelp returns price as "$", "$$", "$$$", "$$$$" — map to LocalDrift's int 1-4.
     # Restaurants without price info default to 2 ($$, mid-range).
     price_str = raw.get("price") or ""
     price_level = len(price_str) if price_str else 2
 
     # Yelp's free tier doesn't return hours via search — leave empty dict.
-    # NearScene's `is_open_now` will then default to False (acceptable for now).
+    # LocalDrift's `is_open_now` will then default to False (acceptable for now).
     hours: dict = {}
 
     return {
