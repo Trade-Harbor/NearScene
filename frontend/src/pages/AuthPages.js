@@ -328,7 +328,7 @@ export function AuthCallback() {
     <div className="min-h-screen flex items-center justify-center">
       <div className="text-center">
         <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center mx-auto mb-4 animate-pulse">
-          <span className="text-white font-bold text-xl font-heading">N</span>
+          <span className="text-white font-bold text-xl font-heading">L</span>
         </div>
         <p className="text-muted-foreground">Redirecting...</p>
       </div>

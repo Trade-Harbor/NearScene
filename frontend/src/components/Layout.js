@@ -81,7 +81,7 @@ export const Navbar = () => {
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2" data-testid="logo-link">
             <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center">
-              <span className="text-white font-bold text-lg font-heading">N</span>
+              <span className="text-white font-bold text-lg font-heading">L</span>
             </div>
             <span className="font-heading font-bold text-xl gradient-brand-text hidden sm:block">LocalDrift</span>
           </Link>
@@ -318,7 +318,7 @@ export const Footer = () => {
           <div className="col-span-2 md:col-span-1">
             <Link to="/" className="flex items-center space-x-2 mb-4">
               <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center">
-                <span className="text-white font-bold font-heading">N</span>
+                <span className="text-white font-bold font-heading">L</span>
               </div>
               <span className="font-heading font-bold text-lg">LocalDrift</span>
             </Link>
