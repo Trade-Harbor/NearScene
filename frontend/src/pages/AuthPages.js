@@ -77,9 +77,11 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center mx-auto mb-4">
-              <span className="text-white font-bold text-xl font-heading">L</span>
-            </div>
+            <img
+              src="/logo.png"
+              alt="LocalDrift"
+              className="h-16 w-16 rounded-full object-cover mx-auto mb-4"
+            />
             <h1 className="font-heading text-2xl font-bold">Welcome to LocalDrift</h1>
             <p className="text-muted-foreground mt-1">Discover what's happening locally</p>
           </div>
@@ -327,9 +329,11 @@ export function AuthCallback() {
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="text-center">
-        <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center mx-auto mb-4 animate-pulse">
-          <span className="text-white font-bold text-xl font-heading">L</span>
-        </div>
+        <img
+          src="/logo.png"
+          alt="LocalDrift"
+          className="h-16 w-16 rounded-full object-cover mx-auto mb-4 animate-pulse"
+        />
         <p className="text-muted-foreground">Redirecting...</p>
       </div>
     </div>
