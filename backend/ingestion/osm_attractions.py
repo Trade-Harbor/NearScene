@@ -48,14 +48,27 @@ MILES_TO_METERS = 1609.34
 # Unsplash photos that match the kind of place. Picked one per type so the
 # Explore page doesn't show 300 copies of the same forest.
 TYPE_STOCK_IMAGES = {
-    "park":          "https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800",   # green park, picnic
-    "beach":         "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800",   # ocean beach
-    "museum":        "https://images.unsplash.com/photo-1565060169187-eef72ce29e0d?w=800",   # museum interior
-    "landmark":      "https://images.unsplash.com/photo-1549893072-4bc678117f45?w=800",      # historic monument
-    "hiking_trail":  "https://images.unsplash.com/photo-1551632811-561732d1e306?w=800",      # forest trail
-    "attraction":    "https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=800",   # generic destination
-    "garden":        "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=800",   # botanical garden
-    "playground":    "https://images.unsplash.com/photo-1551966775-a4ddc8df052b?w=800",      # playground
+    "park":           "https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800",
+    "beach":          "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800",
+    "museum":         "https://images.unsplash.com/photo-1565060169187-eef72ce29e0d?w=800",
+    "landmark":       "https://images.unsplash.com/photo-1549893072-4bc678117f45?w=800",
+    "hiking_trail":   "https://images.unsplash.com/photo-1551632811-561732d1e306?w=800",
+    "attraction":     "https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=800",
+    "garden":         "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=800",
+    "playground":     "https://images.unsplash.com/photo-1551966775-a4ddc8df052b?w=800",
+    # Recreation / things-to-do
+    "golf_course":    "https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=800",  # green fairway
+    "mini_golf":      "https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=800",  # also fairway-like
+    "bowling":        "https://images.unsplash.com/photo-1467810563316-b5476525c0f9?w=800",  # bowling pins
+    "go_karts":       "https://images.unsplash.com/photo-1517649763962-0c623066013b?w=800",  # racing
+    "arcade":         "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=800",  # arcade
+    "sports_centre":  "https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=800",  # gym/sports
+    "ice_rink":       "https://images.unsplash.com/photo-1551541090-9cf52ed5da89?w=800",     # ice skating
+    "skate_park":     "https://images.unsplash.com/photo-1565992441121-4367c2967103?w=800",  # skate
+    "swimming_pool":  "https://images.unsplash.com/photo-1560090995-01632a28895b?w=800",     # pool
+    "fitness":        "https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=800",  # gym
+    "amusement":      "https://images.unsplash.com/photo-1568287859870-7a39b0b16c2c?w=800",  # amusement
+    "water_park":     "https://images.unsplash.com/photo-1551524559-8af4e6624178?w=800",     # water park
 }
 DEFAULT_STOCK_IMAGE = TYPE_STOCK_IMAGES["attraction"]
 
@@ -78,6 +91,24 @@ OSM_TYPE_MAP = [
     ("leisure", "nature_reserve", "park", ["walking_trails"], ["outdoor"], None),
     ("highway", "trailhead", "hiking_trail", [], ["outdoor", "fitness"], None),
     ("route", "hiking", "hiking_trail", [], ["outdoor", "fitness"], None),
+    # Recreation / things-to-do — extended for the new Explore filter
+    ("leisure", "golf_course",      "golf_course",   ["parking"], ["outdoor", "fitness"], None),
+    ("leisure", "miniature_golf",   "mini_golf",     ["parking"], ["family_friendly", "outdoor"], None),
+    ("leisure", "bowling_alley",    "bowling",       ["parking"], ["family_friendly", "indoor"], None),
+    ("leisure", "adult_gaming_centre","arcade",      [],          ["indoor"], None),
+    ("leisure", "amusement_arcade", "arcade",        [],          ["family_friendly", "indoor"], None),
+    ("leisure", "sports_centre",    "sports_centre", ["parking"], ["fitness", "indoor"], None),
+    ("leisure", "fitness_centre",   "fitness",       ["parking"], ["fitness", "indoor"], None),
+    ("leisure", "fitness_station",  "fitness",       [],          ["fitness", "outdoor"], None),
+    ("leisure", "ice_rink",         "ice_rink",      ["parking"], ["family_friendly", "indoor"], None),
+    ("leisure", "skate_park",       "skate_park",    [],          ["fitness", "outdoor"], None),
+    ("leisure", "swimming_pool",    "swimming_pool", [],          ["family_friendly"], None),
+    ("leisure", "water_park",       "water_park",    ["parking"], ["family_friendly", "outdoor"], None),
+    ("tourism", "theme_park",       "amusement",     ["parking"], ["family_friendly", "outdoor"], None),
+    ("tourism", "amusement_park",   "amusement",     ["parking"], ["family_friendly", "outdoor"], None),
+    # Sport-specific tracks (go-karts etc.)
+    ("sport",   "karting",          "go_karts",      ["parking"], ["family_friendly"], None),
+    ("sport",   "motor",            "go_karts",      ["parking"], ["outdoor"], None),
 ]
 
 
@@ -86,9 +117,20 @@ def _build_query(lat: float, lon: float, radius_m: int) -> str:
     within the radius. Uses simple equality matchers (more reliable than regex
     in Overpass QL) and `out center;` which includes tags + center coords for
     ways/relations."""
-    leisure_values = ["park", "garden", "nature_reserve", "playground"]
-    tourism_values = ["museum", "gallery", "attraction", "viewpoint", "zoo", "aquarium", "theme_park"]
+    leisure_values = [
+        "park", "garden", "nature_reserve", "playground",
+        # Recreation / things-to-do
+        "golf_course", "miniature_golf", "bowling_alley",
+        "adult_gaming_centre", "amusement_arcade",
+        "sports_centre", "fitness_centre", "fitness_station",
+        "ice_rink", "skate_park", "swimming_pool", "water_park",
+    ]
+    tourism_values = [
+        "museum", "gallery", "attraction", "viewpoint", "zoo", "aquarium",
+        "theme_park", "amusement_park",
+    ]
     historic_values = ["monument", "memorial", "ruins", "castle", "fort"]
+    sport_values = ["karting"]   # go-kart tracks tagged sport=karting
 
     parts: List[str] = []
     around = f"around:{radius_m},{lat},{lon}"
@@ -106,6 +148,9 @@ def _build_query(lat: float, lon: float, radius_m: int) -> str:
     for v in historic_values:
         parts.append(f"  node({around})[historic={v}];")
         parts.append(f"  way({around})[historic={v}];")
+    for v in sport_values:
+        parts.append(f"  node({around})[sport={v}];")
+        parts.append(f"  way({around})[sport={v}];")
 
     body = "\n".join(parts)
     return f"""[out:json][timeout:60];

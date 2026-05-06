@@ -92,10 +92,20 @@ ATTRACTION_TYPES = [
     {"value": "museum", "label": "Museums"},
     {"value": "beach", "label": "Beaches"},
     {"value": "garden", "label": "Gardens"},
-    {"value": "viewpoint", "label": "Scenic Viewpoints"},
-    {"value": "historic_site", "label": "Historic Sites"},
-    {"value": "nature_reserve", "label": "Nature Reserves"},
     {"value": "playground", "label": "Playgrounds"},
+    # Things to do
+    {"value": "golf_course", "label": "Golf"},
+    {"value": "mini_golf", "label": "Mini Golf"},
+    {"value": "bowling", "label": "Bowling"},
+    {"value": "go_karts", "label": "Go Karts"},
+    {"value": "arcade", "label": "Arcades"},
+    {"value": "ice_rink", "label": "Ice Skating"},
+    {"value": "skate_park", "label": "Skate Parks"},
+    {"value": "swimming_pool", "label": "Swimming"},
+    {"value": "water_park", "label": "Water Parks"},
+    {"value": "amusement", "label": "Amusement Parks"},
+    {"value": "sports_centre", "label": "Sports Centers"},
+    {"value": "fitness", "label": "Fitness"},
 ]
 
 def setup_routes(db, calculate_distance, get_current_user, get_optional_user):

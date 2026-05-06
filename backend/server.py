@@ -2310,7 +2310,7 @@ async def admin_data_counts(request: Request, token: Optional[str] = None):
     """Quick diagnostic: counts per collection, broken down by source.
     Useful to confirm OSM/Yelp/Ticketmaster ingestion actually wrote records."""
     _check_admin(request, token)
-    collections = ["events", "restaurants", "food_trucks", "attractions", "ingestion_runs"]
+    collections = ["events", "restaurants", "food_trucks", "attractions", "churches", "ingestion_runs"]
     out: Dict[str, Any] = {}
     for col in collections:
         total = await db[col].count_documents({})
@@ -2352,12 +2352,20 @@ async def admin_run_attractions(request: Request, token: Optional[str] = None):
 
 @api_router.post("/admin/run-news")
 async def admin_run_news(request: Request, token: Optional[str] = None):
-    """Re-run JUST the news ingester. Useful for seeing fresh headlines
-    without waiting for the daily cron."""
+    """Re-run JUST the news ingester."""
     _check_admin(request, token)
     from ingestion.runner import ingest_news, _get_db
     db_local = _get_db()
     return await ingest_news(db_local)
+
+
+@api_router.post("/admin/run-churches")
+async def admin_run_churches(request: Request, token: Optional[str] = None):
+    """Re-run JUST the OSM churches ingester."""
+    _check_admin(request, token)
+    from ingestion.runner import ingest_churches, _get_db
+    db_local = _get_db()
+    return await ingest_churches(db_local)
 
 
 @api_router.post("/admin/wipe-seed-community")
@@ -2385,11 +2393,13 @@ async def admin_reset_external(request: Request, token: Optional[str] = None):
     restaurants_result = await db.restaurants.delete_many({"_source": {"$exists": True}})
     attractions_result = await db.attractions.delete_many({"_source": {"$exists": True}})
     food_trucks_result = await db.food_trucks.delete_many({"_source": {"$exists": True}})
+    churches_result = await db.churches.delete_many({"_source": {"$exists": True}})
     return {
         "events_deleted": events_result.deleted_count,
         "restaurants_deleted": restaurants_result.deleted_count,
         "attractions_deleted": attractions_result.deleted_count,
         "food_trucks_deleted": food_trucks_result.deleted_count,
+        "churches_deleted": churches_result.deleted_count,
     }
 
 
@@ -2403,19 +2413,21 @@ app.include_router(ai_router)
 app.include_router(flash_deals_router)
 
 # Import and setup new feature routers
-from routes import restaurants, attractions, community, gamification, subscriptions
+from routes import restaurants, attractions, community, gamification, subscriptions, churches
 
 restaurants_router = restaurants.setup_routes(db, calculate_distance, get_current_user, get_optional_user)
 attractions_router = attractions.setup_routes(db, calculate_distance, get_current_user, get_optional_user)
 community_router = community.setup_routes(db, calculate_distance, get_current_user, get_optional_user)
 gamification_router = gamification.setup_routes(db, calculate_distance, get_current_user, get_optional_user)
 subscriptions_router = subscriptions.setup_routes(db, calculate_distance, get_current_user, get_optional_user)
+churches_router = churches.setup_routes(db, calculate_distance, get_current_user, get_optional_user)
 
 app.include_router(restaurants_router)
 app.include_router(attractions_router)
 app.include_router(community_router)
 app.include_router(gamification_router)
 app.include_router(subscriptions_router)
+app.include_router(churches_router)
 
 # CORS: read allowed origins from env (comma-separated). Use "*" only in dev.
 # Note: `allow_credentials=True` with `allow_origins=["*"]` is invalid per CORS spec,

@@ -119,8 +119,15 @@ export const Navbar = () => {
             >
               Food Trucks
             </Link>
-            <Link 
-              to="/community" 
+            <Link
+              to="/churches"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              data-testid="nav-churches"
+            >
+              Churches
+            </Link>
+            <Link
+              to="/community"
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               data-testid="nav-community"
             >
@@ -278,8 +285,15 @@ export const Navbar = () => {
               >
                 Food Trucks
               </Link>
-              <Link 
-                to="/community" 
+              <Link
+                to="/churches"
+                className="px-2 py-2 text-sm font-medium hover:bg-muted rounded-lg transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Churches
+              </Link>
+              <Link
+                to="/community"
                 className="px-2 py-2 text-sm font-medium hover:bg-muted rounded-lg transition-colors"
                 onClick={() => setMobileMenuOpen(false)}
               >
@@ -337,9 +351,10 @@ export const Footer = () => {
             <h4 className="font-heading font-semibold mb-4">Explore</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li><Link to="/events" className="hover:text-foreground transition-colors">All Events</Link></li>
+              <li><Link to="/restaurants" className="hover:text-foreground transition-colors">Restaurants</Link></li>
               <li><Link to="/food-trucks" className="hover:text-foreground transition-colors">Food Trucks</Link></li>
-              <li><Link to="/events?category=concert" className="hover:text-foreground transition-colors">Concerts</Link></li>
-              <li><Link to="/events?category=market" className="hover:text-foreground transition-colors">Markets</Link></li>
+              <li><Link to="/attractions" className="hover:text-foreground transition-colors">Things to Do</Link></li>
+              <li><Link to="/churches" className="hover:text-foreground transition-colors">Churches</Link></li>
             </ul>
           </div>
           

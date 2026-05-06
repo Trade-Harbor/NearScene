@@ -20,7 +20,7 @@ from typing import Dict, Any, List, Optional
 
 from motor.motor_asyncio import AsyncIOMotorClient
 
-from . import ticketmaster, seatgeek, yelp, osm_attractions, news
+from . import ticketmaster, seatgeek, yelp, osm_attractions, osm_churches, news
 from .utils import (
     event_dedup_key,
     event_location_dedup_key,
@@ -299,6 +299,48 @@ async def ingest_attractions(db) -> Dict[str, int]:
     return {"inserted": inserted, "skipped": skipped, "total_candidates": len(candidates)}
 
 
+async def ingest_churches(db) -> Dict[str, int]:
+    """Pull churches from OSM Overpass, dedupe by name+address, insert.
+    Failures are non-fatal (Overpass occasionally rate-limits)."""
+    try:
+        candidates = await osm_churches.fetch_churches()
+    except Exception as e:
+        log.error(f"OSM churches ingestion failed: {e}")
+        return {"inserted": 0, "skipped": 0, "total_candidates": 0, "error": str(e)}
+    log.info(f"Church candidates: {len(candidates)}")
+
+    existing_keys = set()
+    async for doc in db.churches.find(
+        {"_dedup_key": {"$exists": True}},
+        {"_dedup_key": 1, "_id": 0},
+    ):
+        existing_keys.add(doc["_dedup_key"])
+
+    skipped = 0
+    now_iso = datetime.now(timezone.utc).isoformat()
+    docs_to_insert: List[Dict[str, Any]] = []
+    for c in candidates:
+        key = business_dedup_key(c["name"], c["address"])
+        if key in existing_keys:
+            skipped += 1
+            continue
+        church_id = f"church_{uuid.uuid4().hex[:12]}"
+        docs_to_insert.append({
+            "church_id": church_id,
+            **c,
+            "owner_id": f"source_{c['_source']}",
+            "owner_name": "OpenStreetMap",
+            "created_at": now_iso,
+            "_dedup_key": key,
+        })
+    inserted = 0
+    if docs_to_insert:
+        result = await db.churches.insert_many(docs_to_insert, ordered=False)
+        inserted = len(result.inserted_ids)
+    log.info(f"Churches: inserted={inserted}, skipped_duplicate={skipped}")
+    return {"inserted": inserted, "skipped": skipped, "total_candidates": len(candidates)}
+
+
 async def ingest_news(db) -> Dict[str, int]:
     """Pull local-area news from Google News RSS, dedupe by article URL, insert.
     Failures are non-fatal."""
@@ -347,6 +389,7 @@ async def run_all() -> Dict[str, Any]:
 
     events_result = await ingest_events(db, yelp_market_events=market_events_raw)
     attractions_result = await ingest_attractions(db)
+    churches_result = await ingest_churches(db)
     news_result = await ingest_news(db)
 
     finished = datetime.now(timezone.utc)
@@ -360,6 +403,7 @@ async def run_all() -> Dict[str, Any]:
         "restaurants": yelp_result["restaurants"],
         "food_trucks": yelp_result["food_trucks"],
         "attractions": attractions_result,
+        "churches": churches_result,
         "news": news_result,
     }
 

@@ -36,13 +36,28 @@ const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 const ATTRACTION_TYPES = [
   { value: 'all', label: 'All Types', icon: Map },
+  // Outdoor / nature
   { value: 'park', label: 'Parks', icon: TreePine },
   { value: 'hiking_trail', label: 'Hiking Trails', icon: Mountain },
-  { value: 'landmark', label: 'Landmarks', icon: Landmark },
-  { value: 'nature_reserve', label: 'Nature Reserves', icon: TreePine },
   { value: 'beach', label: 'Beaches', icon: Map },
   { value: 'garden', label: 'Gardens', icon: TreePine },
-  { value: 'historic_site', label: 'Historic Sites', icon: Landmark },
+  { value: 'playground', label: 'Playgrounds', icon: TreePine },
+  // Cultural / historic
+  { value: 'museum', label: 'Museums', icon: Landmark },
+  { value: 'landmark', label: 'Landmarks', icon: Landmark },
+  // Things to do
+  { value: 'golf_course', label: 'Golf', icon: Map },
+  { value: 'mini_golf', label: 'Mini Golf', icon: Map },
+  { value: 'bowling', label: 'Bowling', icon: Map },
+  { value: 'go_karts', label: 'Go Karts', icon: Map },
+  { value: 'arcade', label: 'Arcades', icon: Map },
+  { value: 'ice_rink', label: 'Ice Skating', icon: Map },
+  { value: 'skate_park', label: 'Skate Parks', icon: Map },
+  { value: 'swimming_pool', label: 'Swimming', icon: Map },
+  { value: 'water_park', label: 'Water Parks', icon: Map },
+  { value: 'amusement', label: 'Amusement Parks', icon: Map },
+  { value: 'sports_centre', label: 'Sports Centers', icon: Map },
+  { value: 'fitness', label: 'Fitness', icon: Map },
 ];
 
 const DIFFICULTY_LEVELS = [
@@ -144,10 +159,11 @@ export default function AttractionsPage() {
             <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
               <TreePine className="h-6 w-6" />
             </div>
-            <h1 className="font-heading text-3xl md:text-4xl font-bold">Parks & Attractions</h1>
+            <h1 className="font-heading text-3xl md:text-4xl font-bold">Explore & Things to Do</h1>
           </div>
           <p className="text-white/80 max-w-2xl">
-            Explore hiking trails, parks, landmarks, and outdoor spaces near you.
+            Parks, beaches, museums, mini golf, bowling, arcades, go karts, and more —
+            everything to fill an afternoon in the Wilmington area.
           </p>
         </div>
       </div>
