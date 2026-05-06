@@ -39,3 +39,5 @@ Thumbs.db
 
 # === Emergent leftovers ===
 .emergent/
+frontend/public/logo.png.bak
+frontend/public/logo-icon.png.bak

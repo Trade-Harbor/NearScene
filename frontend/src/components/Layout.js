@@ -81,7 +81,7 @@ export const Navbar = () => {
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2" data-testid="logo-link">
             <img
-              src="/logo.png"
+              src="/logo-icon.png"
               alt="LocalDrift"
               className="h-9 w-9 rounded-full object-cover"
               loading="eager"
@@ -321,7 +321,7 @@ export const Footer = () => {
           <div className="col-span-2 md:col-span-1">
             <Link to="/" className="flex items-center space-x-2 mb-4">
               <img
-                src="/logo.png"
+                src="/logo-icon.png"
                 alt="LocalDrift"
                 className="h-8 w-8 rounded-full object-cover"
                 loading="lazy"
