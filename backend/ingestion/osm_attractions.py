@@ -37,9 +37,13 @@ OVERPASS_URLS = [
     "https://overpass.private.coffee/api/interpreter",
 ]
 
-# Per-mirror HTTP timeout. Keep shortish so the full attempt across all
-# mirrors stays well under Render's request timeout (~100s on free tier).
-PER_MIRROR_TIMEOUT = 30.0
+# Per-mirror HTTP timeout. Bumped to 60s after expanding the query to cover
+# fitness courts, recreation venues, etc. The query is now ~80 clauses so
+# Overpass needs more time, especially during peak hours. With 4 mirrors
+# we could in theory wait 240s, but in practice the first mirror succeeds
+# the vast majority of the time, so 60s is fine within Render's ~100s
+# request limit.
+PER_MIRROR_TIMEOUT = 60.0
 
 MILES_TO_METERS = 1609.34
 
@@ -123,45 +127,61 @@ def _build_query(lat: float, lon: float, radius_m: int) -> str:
     within the radius. Uses simple equality matchers (more reliable than regex
     in Overpass QL) and `out center;` which includes tags + center coords for
     ways/relations."""
-    leisure_values = [
-        "park", "garden", "nature_reserve", "playground",
+    # Leisure features that are commonly tagged as multi-polygon relations
+    # (large geographic areas). Worth the extra `relation()` clause cost.
+    leisure_area_values = ["park", "garden", "nature_reserve"]
+    # Leisure features that are virtually always nodes or ways (a building
+    # footprint or a single point). Skipping `relation()` here avoids ~40%
+    # of the Overpass query work.
+    leisure_point_values = [
+        "playground",
         # Recreation / things-to-do
         "golf_course", "miniature_golf", "bowling_alley",
         "adult_gaming_centre", "amusement_arcade",
         "sports_centre", "fitness_centre", "fitness_station",
         "ice_rink", "skate_park", "swimming_pool", "water_park",
     ]
-    tourism_values = [
-        "museum", "gallery", "attraction", "viewpoint", "zoo", "aquarium",
-        "theme_park", "amusement_park",
-    ]
+    # Tourism features split similarly: museums/zoos/aquariums can be relations,
+    # viewpoints/galleries/attractions are usually nodes
+    tourism_area_values = ["museum", "zoo", "aquarium", "theme_park", "amusement_park"]
+    tourism_point_values = ["gallery", "attraction", "viewpoint"]
     historic_values = ["monument", "memorial", "ruins", "castle", "fort"]
-    sport_values = ["karting"]   # go-kart tracks tagged sport=karting
-    # Sport-tagged pitches (tennis/basketball/pickleball/etc.) — leisure=pitch
-    # plus a sport=* qualifier. Querying both tags together via Overpass.
+    sport_values = ["karting"]
     pitch_sports = ["tennis", "basketball", "pickleball", "soccer", "volleyball"]
 
     parts: List[str] = []
     around = f"around:{radius_m},{lat},{lon}"
 
-    for v in leisure_values:
+    # Areas: query node + way + relation
+    for v in leisure_area_values:
         parts.append(f"  node({around})[leisure={v}];")
         parts.append(f"  way({around})[leisure={v}];")
         parts.append(f"  relation({around})[leisure={v}];")
+    # Points: query node + way only
+    for v in leisure_point_values:
+        parts.append(f"  node({around})[leisure={v}];")
+        parts.append(f"  way({around})[leisure={v}];")
+    # Beach
     parts.append(f"  node({around})[natural=beach];")
     parts.append(f"  way({around})[natural=beach];")
-    for v in tourism_values:
+    # Tourism areas
+    for v in tourism_area_values:
         parts.append(f"  node({around})[tourism={v}];")
         parts.append(f"  way({around})[tourism={v}];")
         parts.append(f"  relation({around})[tourism={v}];")
+    # Tourism points
+    for v in tourism_point_values:
+        parts.append(f"  node({around})[tourism={v}];")
+        parts.append(f"  way({around})[tourism={v}];")
+    # Historic — nodes/ways
     for v in historic_values:
         parts.append(f"  node({around})[historic={v}];")
         parts.append(f"  way({around})[historic={v}];")
+    # Sport (e.g. karting)
     for v in sport_values:
         parts.append(f"  node({around})[sport={v}];")
         parts.append(f"  way({around})[sport={v}];")
-    # leisure=pitch with specific sports (must require name to filter out
-    # generic park courts that aren't standalone destinations)
+    # leisure=pitch + sport (must have name to filter out random park markings)
     for sport in pitch_sports:
         parts.append(f"  node({around})[leisure=pitch][sport={sport}][name];")
         parts.append(f"  way({around})[leisure=pitch][sport={sport}][name];")
