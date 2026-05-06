@@ -19,7 +19,9 @@ import sys
 from collections import deque
 from pathlib import Path
 
+import numpy as np
 from PIL import Image, ImageFilter
+from scipy import ndimage
 
 
 def color_distance(c1, c2):
@@ -75,6 +77,28 @@ def crop_logo(input_path: Path, target_size: int = 512, tolerance: int = 30, pad
                 if not visited[nidx]:
                     visited[nidx] = 1
                     queue.append((nx, ny))
+
+    # SPECK REMOVAL.
+    # Flood-fill correctly preserves any pixel NOT connected to a corner via
+    # the cream background — but that includes isolated specks (compression
+    # artifacts, stray pixels) that aren't part of the badge. We use connected-
+    # component labeling to find every cluster of opaque pixels, then keep only
+    # the largest cluster (the badge itself). Anything smaller is dust.
+    mask_array = np.array(mask) > 0   # boolean: True = opaque
+    labels, n_clusters = ndimage.label(mask_array)
+    if n_clusters > 1:
+        # Count pixels per cluster (skipping background label 0)
+        sizes = ndimage.sum(mask_array, labels, range(1, n_clusters + 1))
+        largest = int(np.argmax(sizes)) + 1   # +1 because labels are 1-indexed
+        # Build a cleaned mask: True only for pixels in the largest cluster
+        cleaned = (labels == largest).astype(np.uint8) * 255
+        discarded = int(mask_array.sum() - (cleaned > 0).sum())
+        mask = Image.fromarray(cleaned, mode="L")
+        mask_pixels = mask.load()
+        print(f"Speck removal: kept largest of {n_clusters} clusters, "
+              f"discarded {discarded} stray pixels")
+    else:
+        print(f"Speck removal: {n_clusters} cluster, nothing to discard")
 
     # ALPHA UNMATTING (color de-fringe).
     # Anti-aliased edge pixels in the original AI render are a blend of
