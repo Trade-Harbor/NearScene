@@ -16,9 +16,10 @@ Usage:
 It overwrites the file in place after creating a `.bak` backup.
 """
 import sys
+from collections import deque
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageFilter
 
 
 def color_distance(c1, c2):
@@ -44,31 +45,45 @@ def crop_logo(input_path: Path, target_size: int = 512, tolerance: int = 30, pad
     bg_color = tuple(sum(c[i] for c in corners) // 4 for i in range(3))
     print(f"Detected background color: RGB{bg_color}")
 
-    # Build alpha mask: pixels far from background -> opaque, near background -> transparent.
-    # We use a soft transition over a small distance band so anti-aliased edges
-    # don't get hard-clipped, which would leave a visible cream halo around
-    # curves in the badge. Pixels well within tolerance -> fully transparent;
-    # well outside -> fully opaque; in-between -> linearly faded.
-    mask = Image.new("L", (w, h), 0)
+    # Build alpha mask via FLOOD FILL from the 4 corners.
+    # A naive "any-near-cream pixel is background" approach also erases
+    # cream-ish details INSIDE the badge (wave foam, light highlights),
+    # producing visible holes. By only marking pixels that are background-
+    # colored AND connected to a corner, interior content is preserved.
+    mask = Image.new("L", (w, h), 255)  # default: everything opaque
     mask_pixels = mask.load()
-    matched = 0
-    fade_band = 12  # extra distance over which alpha ramps from 0 to 255
-    for y in range(h):
-        for x in range(w):
-            px = pixels[x, y]
-            d = color_distance(px, bg_color)
-            if d <= tolerance:
-                mask_pixels[x, y] = 0
-                matched += 1
-            elif d >= tolerance + fade_band:
-                mask_pixels[x, y] = 255
-            else:
-                # Linear ramp through the fade band
-                mask_pixels[x, y] = int(255 * (d - tolerance) / fade_band)
 
-    # Apply the mask as the image's alpha channel — background becomes transparent
+    visited = bytearray(w * h)  # flat 1D buffer is faster than nested list
+    queue = deque()
+    for sx, sy in [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)]:
+        idx = sy * w + sx
+        if not visited[idx]:
+            visited[idx] = 1
+            queue.append((sx, sy))
+
+    transparent_count = 0
+    while queue:
+        x, y = queue.popleft()
+        if color_distance(pixels[x, y], bg_color) > tolerance:
+            continue  # pixel isn't background — stop expanding here
+        mask_pixels[x, y] = 0
+        transparent_count += 1
+        for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < w and 0 <= ny < h:
+                nidx = ny * w + nx
+                if not visited[nidx]:
+                    visited[nidx] = 1
+                    queue.append((nx, ny))
+
+    # Slight 0.6px Gaussian blur on the alpha mask only — softens the
+    # otherwise hard alpha boundary so it doesn't pixelate on dark backgrounds,
+    # without bleeding cream halos like the previous wide fade band did.
+    mask = mask.filter(ImageFilter.GaussianBlur(radius=0.6))
+
     img.putalpha(mask)
-    print(f"Background pixels (now transparent): {matched}/{w*h} ({100*matched/(w*h):.1f}%)")
+    print(f"Background pixels (flood-filled to transparent): "
+          f"{transparent_count}/{w*h} ({100*transparent_count/(w*h):.1f}%)")
 
     # Find bounding box of the mask
     bbox = mask.getbbox()
