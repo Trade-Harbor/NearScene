@@ -76,10 +76,51 @@ def crop_logo(input_path: Path, target_size: int = 512, tolerance: int = 30, pad
                     visited[nidx] = 1
                     queue.append((nx, ny))
 
-    # Slight 0.6px Gaussian blur on the alpha mask only — softens the
-    # otherwise hard alpha boundary so it doesn't pixelate on dark backgrounds,
-    # without bleeding cream halos like the previous wide fade band did.
-    mask = mask.filter(ImageFilter.GaussianBlur(radius=0.6))
+    # ALPHA UNMATTING (color de-fringe).
+    # Anti-aliased edge pixels in the original AI render are a blend of
+    # background cream + actual badge color. Just making them semi-transparent
+    # leaves them tinted cream, which shows as a warm halo on dark backgrounds.
+    # The standard fix: solve the compositing equation backwards.
+    #
+    #   observed = bg * (1 - alpha) + true * alpha
+    #     -> true = (observed - bg * (1 - alpha)) / alpha
+    #
+    # This recovers the un-matted "true" RGB so the edge pixel's color
+    # is dominated by the badge content, not the cream background.
+    #
+    # Identify boundary-band pixels: opaque pixels that have a transparent
+    # neighbor within a small radius. MinFilter(5) returns the minimum of
+    # the 5x5 neighborhood: a fully-interior opaque pixel stays at 255,
+    # whereas an opaque pixel near the transparent boundary drops to 0.
+    edge_min = mask.filter(ImageFilter.MinFilter(5))
+    edge_pixels = edge_min.load()
+
+    bg_r, bg_g, bg_b = bg_color
+    unmatted = 0
+    for y in range(h):
+        for x in range(w):
+            # Boundary pixel = currently opaque AND a neighbor within 5x5 is transparent
+            if mask_pixels[x, y] == 0 or edge_pixels[x, y] == 255:
+                continue
+            r, g, b, _ = pixels[x, y]
+            # Estimate how much of this pixel is "background blend" by how
+            # close it is to bg_color
+            d = color_distance((r, g, b), bg_color)
+            if d >= tolerance + 30:
+                continue  # far from cream — leave alone
+            # Approximate alpha for unmatting: closer to bg = lower alpha
+            est_alpha = max(0.15, min(1.0, d / (tolerance + 30)))
+            inv = 1 - est_alpha
+            new_r = max(0, min(255, int((r - bg_r * inv) / est_alpha)))
+            new_g = max(0, min(255, int((g - bg_g * inv) / est_alpha)))
+            new_b = max(0, min(255, int((b - bg_b * inv) / est_alpha)))
+            pixels[x, y] = (new_r, new_g, new_b, 255)
+            unmatted += 1
+    print(f"Edge pixels color-unmatted (de-fringed): {unmatted}")
+
+    # Tighter 0.4px Gaussian blur — just enough anti-aliasing to avoid
+    # jaggies on the now-cleaner edges, without softening into a halo.
+    mask = mask.filter(ImageFilter.GaussianBlur(radius=0.4))
 
     img.putalpha(mask)
     print(f"Background pixels (flood-filled to transparent): "
