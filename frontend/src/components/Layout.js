@@ -105,15 +105,29 @@ export const Navbar = () => {
             >
               Restaurants
             </Link>
-            <Link 
-              to="/attractions" 
+            <Link
+              to="/attractions"
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               data-testid="nav-attractions"
             >
               Explore
             </Link>
-            <Link 
-              to="/food-trucks" 
+            <Link
+              to="/fitness"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              data-testid="nav-fitness"
+            >
+              Fitness
+            </Link>
+            <Link
+              to="/activities"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              data-testid="nav-activities"
+            >
+              Activities
+            </Link>
+            <Link
+              to="/food-trucks"
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               data-testid="nav-food-trucks"
             >
@@ -271,15 +285,29 @@ export const Navbar = () => {
               >
                 Restaurants
               </Link>
-              <Link 
-                to="/attractions" 
+              <Link
+                to="/attractions"
                 className="px-2 py-2 text-sm font-medium hover:bg-muted rounded-lg transition-colors"
                 onClick={() => setMobileMenuOpen(false)}
               >
-                Explore (Parks & Trails)
+                Explore
               </Link>
-              <Link 
-                to="/food-trucks" 
+              <Link
+                to="/fitness"
+                className="px-2 py-2 text-sm font-medium hover:bg-muted rounded-lg transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Fitness
+              </Link>
+              <Link
+                to="/activities"
+                className="px-2 py-2 text-sm font-medium hover:bg-muted rounded-lg transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Activities
+              </Link>
+              <Link
+                to="/food-trucks"
                 className="px-2 py-2 text-sm font-medium hover:bg-muted rounded-lg transition-colors"
                 onClick={() => setMobileMenuOpen(false)}
               >
@@ -353,7 +381,9 @@ export const Footer = () => {
               <li><Link to="/events" className="hover:text-foreground transition-colors">All Events</Link></li>
               <li><Link to="/restaurants" className="hover:text-foreground transition-colors">Restaurants</Link></li>
               <li><Link to="/food-trucks" className="hover:text-foreground transition-colors">Food Trucks</Link></li>
-              <li><Link to="/attractions" className="hover:text-foreground transition-colors">Things to Do</Link></li>
+              <li><Link to="/attractions" className="hover:text-foreground transition-colors">Explore</Link></li>
+              <li><Link to="/fitness" className="hover:text-foreground transition-colors">Fitness</Link></li>
+              <li><Link to="/activities" className="hover:text-foreground transition-colors">Activities</Link></li>
               <li><Link to="/churches" className="hover:text-foreground transition-colors">Churches</Link></li>
             </ul>
           </div>

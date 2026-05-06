@@ -34,31 +34,64 @@ import {
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
-const ATTRACTION_TYPES = [
-  { value: 'all', label: 'All Types', icon: Map },
-  // Outdoor / nature
-  { value: 'park', label: 'Parks', icon: TreePine },
-  { value: 'hiking_trail', label: 'Hiking Trails', icon: Mountain },
-  { value: 'beach', label: 'Beaches', icon: Map },
-  { value: 'garden', label: 'Gardens', icon: TreePine },
-  { value: 'playground', label: 'Playgrounds', icon: TreePine },
-  // Cultural / historic
-  { value: 'museum', label: 'Museums', icon: Landmark },
-  { value: 'landmark', label: 'Landmarks', icon: Landmark },
-  // Things to do
-  { value: 'golf_course', label: 'Golf', icon: Map },
-  { value: 'mini_golf', label: 'Mini Golf', icon: Map },
-  { value: 'bowling', label: 'Bowling', icon: Map },
-  { value: 'go_karts', label: 'Go Karts', icon: Map },
-  { value: 'arcade', label: 'Arcades', icon: Map },
-  { value: 'ice_rink', label: 'Ice Skating', icon: Map },
-  { value: 'skate_park', label: 'Skate Parks', icon: Map },
-  { value: 'swimming_pool', label: 'Swimming', icon: Map },
-  { value: 'water_park', label: 'Water Parks', icon: Map },
-  { value: 'amusement', label: 'Amusement Parks', icon: Map },
-  { value: 'sports_centre', label: 'Sports Centers', icon: Map },
-  { value: 'fitness', label: 'Fitness', icon: Map },
-];
+// Per-category configuration drives the three pages that share this component:
+// /attractions (outdoor), /fitness, /activities. Each preset defines header
+// text, gradient color, and the type-filter dropdown contents.
+const CATEGORY_CONFIG = {
+  outdoor: {
+    title: 'Explore Wilmington',
+    tagline: 'Parks, beaches, hiking trails, museums, gardens, and the area\'s best outdoor spots.',
+    headerGradient: 'from-emerald-500 to-teal-500',
+    iconColor: 'text-emerald-500',
+    types: [
+      { value: 'all', label: 'All Outdoor', icon: Map },
+      { value: 'park', label: 'Parks', icon: TreePine },
+      { value: 'hiking_trail', label: 'Hiking Trails', icon: Mountain },
+      { value: 'beach', label: 'Beaches', icon: Map },
+      { value: 'garden', label: 'Gardens', icon: TreePine },
+      { value: 'playground', label: 'Playgrounds', icon: TreePine },
+      { value: 'museum', label: 'Museums', icon: Landmark },
+      { value: 'landmark', label: 'Landmarks', icon: Landmark },
+      { value: 'nature_reserve', label: 'Nature Reserves', icon: TreePine },
+      { value: 'viewpoint', label: 'Viewpoints', icon: Camera },
+    ],
+  },
+  fitness: {
+    title: 'Fitness & Sports',
+    tagline: 'Gyms, fitness centers, tennis and pickleball courts, basketball, sports complexes, ice rinks, and skate parks.',
+    headerGradient: 'from-blue-500 to-indigo-600',
+    iconColor: 'text-blue-500',
+    types: [
+      { value: 'all', label: 'All Fitness', icon: Map },
+      { value: 'fitness', label: 'Gyms / Fitness', icon: Map },
+      { value: 'sports_centre', label: 'Sports Centers', icon: Map },
+      { value: 'tennis_court', label: 'Tennis Courts', icon: Map },
+      { value: 'pickleball_court', label: 'Pickleball Courts', icon: Map },
+      { value: 'basketball_court', label: 'Basketball Courts', icon: Map },
+      { value: 'soccer_field', label: 'Soccer Fields', icon: Map },
+      { value: 'volleyball_court', label: 'Volleyball Courts', icon: Map },
+      { value: 'ice_rink', label: 'Ice Skating', icon: Map },
+      { value: 'skate_park', label: 'Skate Parks', icon: Map },
+    ],
+  },
+  activities: {
+    title: 'Things to Do',
+    tagline: 'Mini golf, bowling, arcades, go karts, water parks, and family pools — afternoons sorted.',
+    headerGradient: 'from-orange-500 to-rose-500',
+    iconColor: 'text-orange-500',
+    types: [
+      { value: 'all', label: 'All Activities', icon: Map },
+      { value: 'golf_course', label: 'Golf', icon: Map },
+      { value: 'mini_golf', label: 'Mini Golf', icon: Map },
+      { value: 'bowling', label: 'Bowling', icon: Map },
+      { value: 'go_karts', label: 'Go Karts', icon: Map },
+      { value: 'arcade', label: 'Arcades', icon: Map },
+      { value: 'swimming_pool', label: 'Swimming Pools', icon: Map },
+      { value: 'water_park', label: 'Water Parks', icon: Map },
+      { value: 'amusement', label: 'Amusement Parks', icon: Map },
+    ],
+  },
+};
 
 const DIFFICULTY_LEVELS = [
   { value: 'easy', label: 'Easy', color: 'bg-green-500' },
@@ -75,9 +108,11 @@ const MOODS = [
   { value: 'hiking', label: 'Good for Hiking', icon: Footprints },
 ];
 
-export default function AttractionsPage() {
+export default function AttractionsPage({ category = 'outdoor' }) {
   const navigate = useNavigate();
   const { location, radius, updateRadius } = useLocationContext();
+  const config = CATEGORY_CONFIG[category] || CATEGORY_CONFIG.outdoor;
+  const ATTRACTION_TYPES = config.types;
   
   const [attractions, setAttractions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -92,7 +127,14 @@ export default function AttractionsPage() {
 
   useEffect(() => {
     fetchAttractions();
-  }, [location, radius, selectedType, selectedDifficulty, selectedMood, freeOnly, openNow]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location, radius, selectedType, selectedDifficulty, selectedMood, freeOnly, openNow, category]);
+
+  // Reset selectedType when category changes (so an outdoor filter doesn't
+  // bleed into Fitness when navigating between tabs)
+  useEffect(() => {
+    setSelectedType('all');
+  }, [category]);
 
   const fetchAttractions = async () => {
     setLoading(true);
@@ -101,11 +143,13 @@ export default function AttractionsPage() {
         latitude: location?.latitude,
         longitude: location?.longitude,
         radius: radius,
-        limit: 500
+        limit: 500,
+        category,   // Tell the backend which group of attraction_types to return
       };
 
       if (selectedType && selectedType !== 'all') {
         params.attraction_type = selectedType;
+        delete params.category;  // specific type wins over category
       }
       if (selectedDifficulty && selectedDifficulty !== 'any') {
         params.difficulty = selectedDifficulty;
@@ -152,19 +196,16 @@ export default function AttractionsPage() {
 
   return (
     <div className="min-h-screen bg-background" data-testid="attractions-page">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white">
+      {/* Header — driven by category preset (outdoor/fitness/activities) */}
+      <div className={`bg-gradient-to-r ${config.headerGradient} text-white`}>
         <div className="container mx-auto px-4 md:px-6 lg:px-8 max-w-7xl py-12">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
               <TreePine className="h-6 w-6" />
             </div>
-            <h1 className="font-heading text-3xl md:text-4xl font-bold">Explore & Things to Do</h1>
+            <h1 className="font-heading text-3xl md:text-4xl font-bold">{config.title}</h1>
           </div>
-          <p className="text-white/80 max-w-2xl">
-            Parks, beaches, museums, mini golf, bowling, arcades, go karts, and more —
-            everything to fill an afternoon in the Wilmington area.
-          </p>
+          <p className="text-white/80 max-w-2xl">{config.tagline}</p>
         </div>
       </div>
 

@@ -86,6 +86,7 @@ def check_if_open(hours: Optional[dict]) -> bool:
         return True
 
 ATTRACTION_TYPES = [
+    # Outdoor / nature (Explore tab)
     {"value": "park", "label": "Parks"},
     {"value": "hiking_trail", "label": "Hiking Trails"},
     {"value": "landmark", "label": "Landmarks"},
@@ -93,20 +94,50 @@ ATTRACTION_TYPES = [
     {"value": "beach", "label": "Beaches"},
     {"value": "garden", "label": "Gardens"},
     {"value": "playground", "label": "Playgrounds"},
-    # Things to do
+    {"value": "nature_reserve", "label": "Nature Reserves"},
+    {"value": "viewpoint", "label": "Viewpoints"},
+    # Fitness tab
+    {"value": "fitness", "label": "Gyms / Fitness"},
+    {"value": "sports_centre", "label": "Sports Centers"},
+    {"value": "tennis_court", "label": "Tennis Courts"},
+    {"value": "basketball_court", "label": "Basketball Courts"},
+    {"value": "pickleball_court", "label": "Pickleball Courts"},
+    {"value": "soccer_field", "label": "Soccer Fields"},
+    {"value": "volleyball_court", "label": "Volleyball Courts"},
+    {"value": "ice_rink", "label": "Ice Skating"},
+    {"value": "skate_park", "label": "Skate Parks"},
+    # Activities tab
     {"value": "golf_course", "label": "Golf"},
     {"value": "mini_golf", "label": "Mini Golf"},
     {"value": "bowling", "label": "Bowling"},
     {"value": "go_karts", "label": "Go Karts"},
     {"value": "arcade", "label": "Arcades"},
-    {"value": "ice_rink", "label": "Ice Skating"},
-    {"value": "skate_park", "label": "Skate Parks"},
-    {"value": "swimming_pool", "label": "Swimming"},
+    {"value": "swimming_pool", "label": "Swimming Pools"},
     {"value": "water_park", "label": "Water Parks"},
     {"value": "amusement", "label": "Amusement Parks"},
-    {"value": "sports_centre", "label": "Sports Centers"},
-    {"value": "fitness", "label": "Fitness"},
 ]
+
+
+# Category groups for the three Explore-style pages. Each category maps to
+# a set of attraction_type values that appear under that tab.
+# The frontend hits /api/attractions?category=<name> and the backend
+# translates to a $in query.
+CATEGORY_GROUPS = {
+    "outdoor": [
+        "park", "hiking_trail", "beach", "garden", "playground",
+        "landmark", "museum", "nature_reserve", "viewpoint", "historic_site",
+    ],
+    "fitness": [
+        "fitness", "sports_centre",
+        "tennis_court", "basketball_court", "pickleball_court",
+        "soccer_field", "volleyball_court",
+        "ice_rink", "skate_park",
+    ],
+    "activities": [
+        "golf_course", "mini_golf", "bowling", "go_karts", "arcade",
+        "swimming_pool", "water_park", "amusement",
+    ],
+}
 
 def setup_routes(db, calculate_distance, get_current_user, get_optional_user):
     
@@ -141,6 +172,11 @@ def setup_routes(db, calculate_distance, get_current_user, get_optional_user):
         longitude: Optional[float] = Query(None),
         radius: float = Query(25),
         attraction_type: Optional[str] = Query(None),
+        category: Optional[str] = Query(
+            None,
+            description="High-level group filter: outdoor, fitness, or activities. "
+                        "When set, expands to the matching attraction_type list.",
+        ),
         difficulty: Optional[str] = Query(None),
         free_only: bool = Query(False),
         open_now: bool = Query(False),
@@ -151,8 +187,13 @@ def setup_routes(db, calculate_distance, get_current_user, get_optional_user):
     ):
         query = {}
 
+        # Specific attraction_type filter takes precedence; otherwise expand category.
         if attraction_type:
             query["attraction_type"] = attraction_type
+        elif category:
+            types = CATEGORY_GROUPS.get(category.lower())
+            if types:
+                query["attraction_type"] = {"$in": types}
         
         if difficulty:
             query["difficulty_level"] = difficulty

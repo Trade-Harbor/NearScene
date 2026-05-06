@@ -46,8 +46,12 @@ function AppRouter() {
               <Route path="/food-trucks" element={<FoodTrucksPage />} />
               <Route path="/restaurants" element={<RestaurantsPage />} />
               <Route path="/restaurants/:restaurantId" element={<RestaurantDetailPage />} />
-              <Route path="/attractions" element={<AttractionsPage />} />
+              <Route path="/attractions" element={<AttractionsPage category="outdoor" />} />
               <Route path="/attractions/:attractionId" element={<AttractionDetailPage />} />
+              <Route path="/fitness" element={<AttractionsPage category="fitness" />} />
+              <Route path="/fitness/:attractionId" element={<AttractionDetailPage />} />
+              <Route path="/activities" element={<AttractionsPage category="activities" />} />
+              <Route path="/activities/:attractionId" element={<AttractionDetailPage />} />
               <Route path="/churches" element={<ChurchesPage />} />
               <Route path="/churches/:churchId" element={<ChurchDetailPage />} />
               <Route path="/community" element={<CommunityPage />} />

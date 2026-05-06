@@ -69,6 +69,12 @@ TYPE_STOCK_IMAGES = {
     "fitness":        "https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=800",  # gym
     "amusement":      "https://images.unsplash.com/photo-1568287859870-7a39b0b16c2c?w=800",  # amusement
     "water_park":     "https://images.unsplash.com/photo-1551524559-8af4e6624178?w=800",     # water park
+    # Sports courts/fields (leisure=pitch + sport=*)
+    "tennis_court":      "https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=800",   # tennis court
+    "basketball_court":  "https://images.unsplash.com/photo-1546519638-68e109498ffc?w=800",   # basketball court
+    "pickleball_court":  "https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=800",   # courts
+    "soccer_field":      "https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?w=800",# soccer pitch
+    "volleyball_court":  "https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?w=800",# beach volleyball
 }
 DEFAULT_STOCK_IMAGE = TYPE_STOCK_IMAGES["attraction"]
 
@@ -131,6 +137,9 @@ def _build_query(lat: float, lon: float, radius_m: int) -> str:
     ]
     historic_values = ["monument", "memorial", "ruins", "castle", "fort"]
     sport_values = ["karting"]   # go-kart tracks tagged sport=karting
+    # Sport-tagged pitches (tennis/basketball/pickleball/etc.) — leisure=pitch
+    # plus a sport=* qualifier. Querying both tags together via Overpass.
+    pitch_sports = ["tennis", "basketball", "pickleball", "soccer", "volleyball"]
 
     parts: List[str] = []
     around = f"around:{radius_m},{lat},{lon}"
@@ -151,6 +160,11 @@ def _build_query(lat: float, lon: float, radius_m: int) -> str:
     for v in sport_values:
         parts.append(f"  node({around})[sport={v}];")
         parts.append(f"  way({around})[sport={v}];")
+    # leisure=pitch with specific sports (must require name to filter out
+    # generic park courts that aren't standalone destinations)
+    for sport in pitch_sports:
+        parts.append(f"  node({around})[leisure=pitch][sport={sport}][name];")
+        parts.append(f"  way({around})[leisure=pitch][sport={sport}][name];")
 
     body = "\n".join(parts)
     return f"""[out:json][timeout:60];
@@ -295,16 +309,34 @@ def _normalize_attraction(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     if lat is None or lon is None:
         return None
 
-    # Determine attraction type by checking tags against our map
+    # Determine attraction type. Special-case leisure=pitch first since the
+    # type depends on the sport= sub-tag (tennis/basketball/pickleball/etc.),
+    # which the simple key=value map can't express.
     attraction_type = "landmark"
     amenities: list = []
     mood_tags: list = []
-    for key, value, atype, defaults, moods, _img in OSM_TYPE_MAP:
-        if tags.get(key) == value:
-            attraction_type = atype
-            amenities = list(defaults)
-            mood_tags = list(moods)
-            break
+
+    if tags.get("leisure") == "pitch":
+        sport = (tags.get("sport") or "").lower()
+        sport_to_type = {
+            "tennis":     "tennis_court",
+            "basketball": "basketball_court",
+            "pickleball": "pickleball_court",
+            "soccer":     "soccer_field",
+            "volleyball": "volleyball_court",
+        }
+        if sport in sport_to_type:
+            attraction_type = sport_to_type[sport]
+            amenities = ["parking"]
+            mood_tags = ["fitness", "outdoor"]
+
+    if attraction_type == "landmark":
+        for key, value, atype, defaults, moods, _img in OSM_TYPE_MAP:
+            if tags.get(key) == value:
+                attraction_type = atype
+                amenities = list(defaults)
+                mood_tags = list(moods)
+                break
 
     # Address — OSM uses `addr:*` tags inconsistently
     address_parts = [
