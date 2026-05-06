@@ -80,7 +80,7 @@ export default function LoginPage() {
             <img
               src="/logo.png"
               alt="LocalDrift"
-              className="h-32 w-32 rounded-full object-cover mx-auto mb-4 shadow-lg"
+              className="h-44 w-44 object-contain mx-auto mb-4"
             />
             <h1 className="font-heading text-2xl font-bold">Welcome to LocalDrift</h1>
             <p className="text-muted-foreground mt-1">Discover what's happening locally</p>
@@ -332,7 +332,7 @@ export function AuthCallback() {
         <img
           src="/logo.png"
           alt="LocalDrift"
-          className="h-24 w-24 rounded-full object-cover mx-auto mb-4 animate-pulse"
+          className="h-28 w-28 object-contain mx-auto mb-4 animate-pulse"
         />
         <p className="text-muted-foreground">Redirecting...</p>
       </div>

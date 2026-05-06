@@ -44,19 +44,31 @@ def crop_logo(input_path: Path, target_size: int = 512, tolerance: int = 30, pad
     bg_color = tuple(sum(c[i] for c in corners) // 4 for i in range(3))
     print(f"Detected background color: RGB{bg_color}")
 
-    # Build alpha mask: pixels far from background → opaque
+    # Build alpha mask: pixels far from background -> opaque, near background -> transparent.
+    # We use a soft transition over a small distance band so anti-aliased edges
+    # don't get hard-clipped, which would leave a visible cream halo around
+    # curves in the badge. Pixels well within tolerance -> fully transparent;
+    # well outside -> fully opaque; in-between -> linearly faded.
     mask = Image.new("L", (w, h), 0)
     mask_pixels = mask.load()
     matched = 0
+    fade_band = 12  # extra distance over which alpha ramps from 0 to 255
     for y in range(h):
         for x in range(w):
             px = pixels[x, y]
-            if color_distance(px, bg_color) > tolerance:
+            d = color_distance(px, bg_color)
+            if d <= tolerance:
+                mask_pixels[x, y] = 0
+                matched += 1
+            elif d >= tolerance + fade_band:
                 mask_pixels[x, y] = 255
             else:
-                matched += 1
+                # Linear ramp through the fade band
+                mask_pixels[x, y] = int(255 * (d - tolerance) / fade_band)
 
-    print(f"Background pixels: {matched}/{w*h} ({100*matched/(w*h):.1f}%)")
+    # Apply the mask as the image's alpha channel — background becomes transparent
+    img.putalpha(mask)
+    print(f"Background pixels (now transparent): {matched}/{w*h} ({100*matched/(w*h):.1f}%)")
 
     # Find bounding box of the mask
     bbox = mask.getbbox()

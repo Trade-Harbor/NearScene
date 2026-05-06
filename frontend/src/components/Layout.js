@@ -83,7 +83,7 @@ export const Navbar = () => {
             <img
               src="/logo-icon.png"
               alt="LocalDrift"
-              className="h-9 w-9 rounded-full object-cover"
+              className="h-10 w-10 object-contain"
               loading="eager"
             />
             <span className="font-heading font-bold text-xl gradient-brand-text hidden sm:block">LocalDrift</span>
@@ -323,7 +323,7 @@ export const Footer = () => {
               <img
                 src="/logo-icon.png"
                 alt="LocalDrift"
-                className="h-8 w-8 rounded-full object-cover"
+                className="h-9 w-9 object-contain"
                 loading="lazy"
               />
               <span className="font-heading font-bold text-lg">LocalDrift</span>
