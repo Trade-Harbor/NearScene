@@ -38,23 +38,27 @@ def fit_centered(src: Image.Image, canvas_size: int, logo_fraction: float, bg) -
 def main():
     src = Image.open(SRC).convert("RGBA")
 
-    # apple-touch-icon: iOS forces opaque, so bake teal in. Logo at ~88%
-    # because iOS auto-applies its own rounded-corner mask outside of that.
-    apple = fit_centered(src, 180, 0.88, BG)
+    # apple-touch-icon: iOS forces opaque AND auto-rounds corners. Fill
+    # canvas with teal so the rounded corners stay teal, then place the
+    # logo at 100% so the circle reaches edge-to-edge.
+    apple = fit_centered(src, 180, 1.0, BG)
     apple.save(PUBLIC / "apple-touch-icon.png", optimize=True)
-    print("wrote apple-touch-icon.png (180x180, teal bg)")
+    print("wrote apple-touch-icon.png (180x180, teal bg, edge-to-edge)")
 
-    # android-chrome (transparent — used as "any" purpose icons)
+    # android-chrome (transparent + logo at 100% — circle IS the icon)
     for sz in (192, 512):
         out = src.resize((sz, sz), Image.LANCZOS)
         out.save(PUBLIC / f"android-chrome-{sz}x{sz}.png", optimize=True)
-        print(f"wrote android-chrome-{sz}x{sz}.png (transparent)")
+        print(f"wrote android-chrome-{sz}x{sz}.png (transparent, edge-to-edge)")
 
-    # maskable variants — logo at 70% so safe-area survives any mask shape
+    # maskable variants — Android crops these into a shape (circle/squircle/
+    # rounded-square depending on launcher). Maskable spec says the logo
+    # must live in the inner 80% safe zone so no shape clips it. We use
+    # 80% here — slightly larger than before since user wants more presence.
     for sz in (192, 512):
-        m = fit_centered(src, sz, 0.70, BG)
+        m = fit_centered(src, sz, 0.80, BG)
         m.save(PUBLIC / f"android-chrome-maskable-{sz}.png", optimize=True)
-        print(f"wrote android-chrome-maskable-{sz}.png (teal bg, 70% safe)")
+        print(f"wrote android-chrome-maskable-{sz}.png (teal bg, 80% safe)")
 
 
 if __name__ == "__main__":
