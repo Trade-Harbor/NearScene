@@ -2174,6 +2174,48 @@ async def admin_get_feedback(
     return {"count": len(items), "items": items}
 
 
+class EmailSignupCreate(BaseModel):
+    email: str
+    source: Optional[str] = None  # e.g. "homepage", "about", "footer"
+
+
+@api_router.post("/email-signups")
+async def submit_email_signup(data: EmailSignupCreate, request: Request):
+    """Public endpoint — collect email addresses for the launch list.
+    Stored in db.email_signups; deduped on lowercased email."""
+    email = (data.email or "").strip().lower()
+    if not email or "@" not in email or "." not in email.split("@")[-1]:
+        raise HTTPException(status_code=400, detail="Valid email is required")
+
+    existing = await db.email_signups.find_one({"email": email})
+    if existing:
+        return {"status": "already_subscribed"}
+
+    doc = {
+        "signup_id": f"es_{uuid.uuid4().hex[:12]}",
+        "email": email,
+        "source": (data.source or "unknown").strip()[:50],
+        "user_agent": request.headers.get("User-Agent", ""),
+        "ip": request.client.host if request.client else None,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.email_signups.insert_one(doc)
+    return {"status": "subscribed"}
+
+
+@api_router.get("/admin/email-signups")
+async def admin_list_email_signups(
+    request: Request,
+    token: Optional[str] = None,
+    limit: int = 500,
+):
+    """Admin: list email signups, newest first."""
+    _check_admin(request, token)
+    cursor = db.email_signups.find({}, {"_id": 0}).sort("created_at", -1).limit(limit)
+    items = await cursor.to_list(limit)
+    return {"count": len(items), "items": items}
+
+
 # ============= LOCAL NEWS =============
 
 @api_router.get("/news")

@@ -22,6 +22,7 @@ import {
   Accessibility,
   X,
 } from 'lucide-react';
+import usePageTitle from '../hooks/usePageTitle';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -35,6 +36,7 @@ const RELIGIONS = [
 ];
 
 export default function ChurchesPage() {
+  usePageTitle('Churches');
   const navigate = useNavigate();
   const { location, radius } = useLocationContext();
 

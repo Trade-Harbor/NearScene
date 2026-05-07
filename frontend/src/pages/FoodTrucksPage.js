@@ -21,6 +21,7 @@ import {
   SlidersHorizontal,
   X
 } from 'lucide-react';
+import usePageTitle from '../hooks/usePageTitle';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -37,6 +38,7 @@ const CUISINES = [
 ];
 
 export default function FoodTrucksPage() {
+  usePageTitle('Food Trucks');
   const navigate = useNavigate();
   const { location, radius, updateRadius } = useLocationContext();
   

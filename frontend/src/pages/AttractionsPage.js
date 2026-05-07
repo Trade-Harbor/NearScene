@@ -40,7 +40,7 @@ const API_URL = process.env.REACT_APP_BACKEND_URL;
 const CATEGORY_CONFIG = {
   outdoor: {
     title: 'Explore Wilmington',
-    tagline: 'Parks, beaches, hiking trails, museums, gardens, and the area\'s best outdoor spots.',
+    tagline: "Parks, beaches, hiking trails, museums, gardens, and the area's best outdoor spots.",
     headerGradient: 'from-emerald-500 to-teal-500',
     iconColor: 'text-emerald-500',
     types: [

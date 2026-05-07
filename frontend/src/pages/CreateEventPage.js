@@ -30,6 +30,7 @@ import {
   ArrowLeft,
   Plus
 } from 'lucide-react';
+import usePageTitle from '../hooks/usePageTitle';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -56,6 +57,7 @@ const US_STATES = [
 ];
 
 export default function CreateEventPage() {
+  usePageTitle('Create Event');
   const navigate = useNavigate();
   const { isAuthenticated, token, user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
