@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
+import re
+import asyncio
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr
@@ -2214,6 +2216,176 @@ async def admin_list_email_signups(
     cursor = db.email_signups.find({}, {"_id": 0}).sort("created_at", -1).limit(limit)
     items = await cursor.to_list(limit)
     return {"count": len(items), "items": items}
+
+
+# ============= UNIFIED SEARCH =============
+# Cross-collection search powering the hero search bar. Single query string,
+# fans out to events, restaurants, attractions, food trucks, and churches in
+# parallel, returns grouped results.
+#
+# Synonym expansion: users type natural-language category words ("gym",
+# "park", "pool") that won't literally appear in our data. We map those to
+# search terms PLUS direct that result type to the front of the response so
+# the homepage knows where to send the user if they hit Enter.
+
+# Map intent keyword -> (extra search terms, primary collection to surface).
+# Order matters: first-matching wins. Add aliases here as they come up.
+_SEARCH_INTENT_MAP = [
+    # word(s) typed -> (extra regex tokens, preferred type for "go-to" hint)
+    (("gym", "gyms", "fitness", "workout", "crossfit"),
+     ["gym", "fitness", "crossfit", "yoga", "pilates"], "fitness"),
+    (("pool", "pools", "swim", "swimming", "aquatic"),
+     ["pool", "swim", "aquatic"], "activities"),
+    (("park", "parks", "trail", "trails", "hike", "hiking", "nature", "outdoors"),
+     ["park", "trail", "garden", "nature", "preserve"], "attractions"),
+    (("beach", "beaches", "ocean", "shore"),
+     ["beach", "shore", "pier"], "attractions"),
+    (("museum", "museums", "art", "gallery", "history"),
+     ["museum", "gallery", "historic", "art"], "attractions"),
+    (("food", "eat", "restaurant", "restaurants", "dining", "lunch", "dinner", "breakfast", "brunch"),
+     ["restaurant", "cafe", "diner", "grill", "kitchen"], "restaurants"),
+    (("truck", "trucks", "food truck", "food trucks"),
+     ["truck"], "food_trucks"),
+    (("bar", "bars", "pub", "pubs", "brewery", "breweries", "drinks", "cocktail", "cocktails"),
+     ["bar", "pub", "brewery", "tavern", "lounge"], "restaurants"),
+    (("concert", "concerts", "show", "shows", "live music", "music"),
+     ["concert", "live", "music", "band"], "events"),
+    (("sport", "sports", "game", "games"),
+     ["sport", "game", "match"], "events"),
+    (("kids", "family", "children", "child"),
+     ["family", "kids", "children", "playground"], "activities"),
+    (("bowling", "arcade", "go kart", "go karts", "putt putt", "mini golf", "minigolf"),
+     ["bowling", "arcade", "kart", "putt", "mini golf"], "activities"),
+    (("church", "churches", "worship", "mass", "service", "synagogue", "temple", "mosque"),
+     ["church", "worship", "chapel"], "churches"),
+    (("event", "events", "things to do", "happening"),
+     [], "events"),
+]
+
+
+def _expand_search_terms(q: str) -> tuple[list[str], Optional[str]]:
+    """Given a raw query string, return (search_terms, preferred_type).
+
+    Search terms = original tokens + any synonym expansion based on intent.
+    Preferred type = the collection most likely to satisfy the query, so
+    the frontend can default to that tab on Enter."""
+    raw = (q or "").strip().lower()
+    if not raw:
+        return [], None
+
+    base_tokens = [t for t in re.split(r"\s+", raw) if len(t) >= 2]
+    extras: list[str] = []
+    preferred: Optional[str] = None
+
+    for triggers, expansions, pref_type in _SEARCH_INTENT_MAP:
+        if any(trig in raw for trig in triggers):
+            extras.extend(expansions)
+            if preferred is None:
+                preferred = pref_type
+            # Keep scanning so multiple intents can stack expansions.
+
+    # Dedupe while preserving order
+    seen = set()
+    terms = []
+    for t in base_tokens + extras:
+        if t not in seen:
+            seen.add(t)
+            terms.append(t)
+    return terms, preferred
+
+
+def _build_search_filter(terms: list[str], fields: list[str]) -> dict:
+    """Build a Mongo $or filter that matches ANY term against ANY field
+    via case-insensitive regex. Empty -> match nothing (so callers can
+    short-circuit on empty input)."""
+    if not terms:
+        return {"_id": {"$exists": False}}  # impossible match
+    # Escape regex metachars in user input
+    pattern = "|".join(re.escape(t) for t in terms)
+    return {"$or": [{f: {"$regex": pattern, "$options": "i"}} for f in fields]}
+
+
+@api_router.get("/search")
+async def unified_search(
+    q: str,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
+    limit_per_type: int = 8,
+):
+    """Unified search across events, restaurants, attractions, food trucks,
+    and churches. Returns results grouped by type so the homepage search
+    can render a multi-section results page or auto-route to the most
+    relevant tab.
+
+    Query string `q` is fuzzy: tokenized + synonym-expanded so that users
+    typing "gym" find fitness centers, "park" finds outdoor attractions,
+    "food truck" finds trucks, etc."""
+    terms, preferred_type = _expand_search_terms(q)
+    if not terms:
+        return {
+            "query": q,
+            "preferred_type": None,
+            "total": 0,
+            "groups": {
+                "events": [], "restaurants": [], "attractions": [],
+                "food_trucks": [], "churches": [],
+            },
+        }
+
+    # Per-collection field lists. Keep narrow to avoid noisy matches on
+    # long descriptions; we'll relax this later if precision is too tight.
+    filters = {
+        "events": _build_search_filter(terms, ["title", "description", "tags", "category", "location_name"]),
+        "restaurants": _build_search_filter(terms, ["name", "description", "categories", "city"]),
+        "attractions": _build_search_filter(terms, ["name", "description", "category", "tags", "city"]),
+        "food_trucks": _build_search_filter(terms, ["name", "description", "cuisine", "categories"]),
+        "churches": _build_search_filter(terms, ["name", "description", "denomination", "religion", "city"]),
+    }
+
+    # Run all 5 queries in parallel
+    events_t = db.events.find(filters["events"], {"_id": 0}).limit(limit_per_type).to_list(limit_per_type)
+    rests_t = db.restaurants.find(filters["restaurants"], {"_id": 0}).limit(limit_per_type).to_list(limit_per_type)
+    attrs_t = db.attractions.find(filters["attractions"], {"_id": 0}).limit(limit_per_type).to_list(limit_per_type)
+    trucks_t = db.food_trucks.find(filters["food_trucks"], {"_id": 0}).limit(limit_per_type).to_list(limit_per_type)
+    churches_t = db.churches.find(filters["churches"], {"_id": 0}).limit(limit_per_type).to_list(limit_per_type)
+
+    events, rests, attrs, trucks, churches = await asyncio.gather(
+        events_t, rests_t, attrs_t, trucks_t, churches_t
+    )
+
+    def add_distance(items, lat_key="latitude", lon_key="longitude"):
+        if latitude is None or longitude is None:
+            return items
+        for it in items:
+            try:
+                it["distance"] = round(calculate_distance(
+                    latitude, longitude, it[lat_key], it[lon_key]
+                ), 1)
+            except (KeyError, TypeError):
+                it["distance"] = None
+        return items
+
+    groups = {
+        "events": add_distance(events),
+        "restaurants": add_distance(rests),
+        "attractions": add_distance(attrs),
+        "food_trucks": add_distance(trucks),
+        "churches": add_distance(churches),
+    }
+
+    # If no preferred_type was inferred from intent, pick the bucket with
+    # the most hits — that's where the user probably wants to land.
+    if preferred_type is None:
+        non_empty = [(k, len(v)) for k, v in groups.items() if v]
+        if non_empty:
+            preferred_type = max(non_empty, key=lambda kv: kv[1])[0]
+
+    return {
+        "query": q,
+        "preferred_type": preferred_type,
+        "total": sum(len(v) for v in groups.values()),
+        "groups": groups,
+    }
 
 
 # ============= LOCAL NEWS =============
