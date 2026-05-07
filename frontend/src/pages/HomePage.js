@@ -4,6 +4,7 @@ import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
 import { EventCard } from '../components/Cards';
 import { FlashDealsSection } from '../components/FlashDeals';
+import EmailSignup from '../components/EmailSignup';
 import { useLocation as useLocationContext } from '../context/LocationContext';
 import { useAuth } from '../context/AuthContext';
 import { useState, useEffect } from 'react';
@@ -357,6 +358,13 @@ export default function HomePage() {
               </p>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Email signup */}
+      <section className="py-12 bg-background">
+        <div className="container mx-auto px-4 md:px-6 lg:px-8 max-w-3xl">
+          <EmailSignup source="homepage" />
         </div>
       </section>
 

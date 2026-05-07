@@ -3,10 +3,12 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Button } from '../components/ui/button';
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import usePageTitle from '../hooks/usePageTitle';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 export default function TicketSuccessPage() {
+  usePageTitle('Ticket Confirmed');
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [status, setStatus] = useState('loading'); // loading, success, error

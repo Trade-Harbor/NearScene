@@ -23,10 +23,12 @@ import {
   Users,
   Loader2
 } from 'lucide-react';
+import usePageTitle from '../hooks/usePageTitle';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 export default function DashboardPage() {
+  usePageTitle('Dashboard');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, isAuthenticated, token } = useAuth();

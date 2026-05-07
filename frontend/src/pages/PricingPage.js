@@ -19,6 +19,7 @@ import {
   Percent,
   ChevronRight
 } from 'lucide-react';
+import usePageTitle from '../hooks/usePageTitle';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -37,6 +38,7 @@ const PLAN_COLORS = {
 };
 
 export default function PricingPage() {
+  usePageTitle('Pricing');
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
   const [plans, setPlans] = useState([]);

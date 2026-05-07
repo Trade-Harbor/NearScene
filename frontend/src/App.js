@@ -5,6 +5,8 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { LocationProvider } from "./context/LocationContext";
 import { Layout } from "./components/Layout";
 import { Toaster } from "./components/ui/sonner";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 // Pages
 import HomePage from "./pages/HomePage";
@@ -82,6 +84,8 @@ function App() {
             <LocationProvider>
               <AppRouter />
               <Toaster position="top-right" richColors />
+              <Analytics />
+              <SpeedInsights />
             </LocationProvider>
           </AuthProvider>
         </BrowserRouter>

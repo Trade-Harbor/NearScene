@@ -30,6 +30,7 @@ import {
   Dog,
   Baby
 } from 'lucide-react';
+import usePageTitle from '../hooks/usePageTitle';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -56,6 +57,7 @@ const MOODS = [
 const PRICE_LEVELS = ['$', '$$', '$$$', '$$$$'];
 
 export default function RestaurantsPage() {
+  usePageTitle('Restaurants');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { location, radius, updateRadius } = useLocationContext();

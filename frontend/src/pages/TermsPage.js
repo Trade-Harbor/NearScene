@@ -1,11 +1,13 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '../components/ui/button';
+import usePageTitle from '../hooks/usePageTitle';
 
 // Template Terms of Service for LocalDrift's beta period.
 // Covers user-generated content rules, liability disclaimer, and ToS for the
 // beta period. Have a lawyer review before exiting beta / accepting payments.
 export default function TermsPage() {
+  usePageTitle('Terms of Service');
   const lastUpdated = 'May 4, 2026';
 
   return (

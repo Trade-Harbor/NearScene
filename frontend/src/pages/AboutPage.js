@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Calendar, Utensils, Truck, TreePine, Newspaper, Users, MessageSquare } from 'lucide-react';
 import { Button } from '../components/ui/button';
+import EmailSignup from '../components/EmailSignup';
+import usePageTitle from '../hooks/usePageTitle';
 
 export default function AboutPage() {
+  usePageTitle('About');
   return (
     <div className="min-h-screen bg-background" data-testid="about-page">
       <div className="container mx-auto max-w-3xl px-4 md:px-6 py-12">
@@ -113,6 +116,14 @@ export default function AboutPage() {
             <li><strong>Google News RSS</strong> — local news headlines</li>
             <li><strong>Users like you</strong> — community posts and submitted events</li>
           </ul>
+        </section>
+
+        <section className="mb-8">
+          <EmailSignup
+            source="about"
+            title="Stay in the loop"
+            description="Get an email when LocalDrift expands to new cities or ships major new features. No spam — just updates."
+          />
         </section>
 
         <section className="mb-8 p-6 bg-muted/30 rounded-xl">

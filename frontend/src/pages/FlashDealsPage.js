@@ -18,6 +18,7 @@ import {
   Flame,
   SlidersHorizontal
 } from 'lucide-react';
+import usePageTitle from '../hooks/usePageTitle';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -68,6 +69,7 @@ function CountdownTimer({ endTime, onExpire }) {
 }
 
 export default function FlashDealsPage() {
+  usePageTitle('Flash Deals');
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { location } = useLocationContext();

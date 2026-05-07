@@ -28,6 +28,7 @@ import {
   X,
   SlidersHorizontal
 } from 'lucide-react';
+import usePageTitle from '../hooks/usePageTitle';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -46,6 +47,7 @@ const CATEGORIES = [
 ];
 
 export default function EventsPage() {
+  usePageTitle('Events');
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { location, radius, updateRadius } = useLocationContext();

@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /my-events
+Disallow: /my-tickets
+Disallow: /tickets/success
+Disallow: /auth/
+
+Sitemap: https://localdrift.app/sitemap.xml

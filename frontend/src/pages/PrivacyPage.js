@@ -1,12 +1,14 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '../components/ui/button';
+import usePageTitle from '../hooks/usePageTitle';
 
 // Template Privacy Policy for LocalDrift's beta period.
 // Generic "small US web app" coverage — collects email, location, forum posts,
 // uses third-party APIs (Yelp, Ticketmaster, SeatGeek, OpenStreetMap, Google News).
 // Have a lawyer review before scaling commercially.
 export default function PrivacyPage() {
+  usePageTitle('Privacy Policy');
   const lastUpdated = 'May 4, 2026';
 
   return (
