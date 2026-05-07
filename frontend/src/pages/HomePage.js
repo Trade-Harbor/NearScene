@@ -83,7 +83,7 @@ export default function HomePage() {
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      navigate(`/events?search=${encodeURIComponent(searchQuery)}`);
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
     }
   };
 
@@ -123,7 +123,7 @@ export default function HomePage() {
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                   <Input
                     type="text"
-                    placeholder="Search events, food trucks, markets..."
+                    placeholder="Try 'parks', 'gym', 'sushi', 'concert tonight'..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="h-14 pl-12 pr-4 rounded-full text-base bg-card shadow-lg border-0 focus-visible:ring-2 focus-visible:ring-primary"

@@ -29,6 +29,7 @@ import LoginPage, { AuthCallback } from "./pages/AuthPages";
 import PrivacyPage from "./pages/PrivacyPage";
 import TermsPage from "./pages/TermsPage";
 import AboutPage from "./pages/AboutPage";
+import SearchResultsPage from "./pages/SearchResultsPage";
 
 // App Router
 function AppRouter() {
@@ -67,6 +68,7 @@ function AppRouter() {
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/about" element={<AboutPage />} />
+              <Route path="/search" element={<SearchResultsPage />} />
             </Routes>
           </Layout>
         }
