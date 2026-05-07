@@ -52,13 +52,16 @@ def main():
         print(f"wrote android-chrome-{sz}x{sz}.png (transparent, edge-to-edge)")
 
     # maskable variants — Android crops these into a shape (circle/squircle/
-    # rounded-square depending on launcher). Maskable spec says the logo
-    # must live in the inner 80% safe zone so no shape clips it. We use
-    # 80% here — slightly larger than before since user wants more presence.
+    # rounded-square depending on launcher). The official maskable safe
+    # zone is a circle of diameter 80% — but our logo IS already a circle,
+    # so it can extend past the square safe zone without clipping on
+    # circular/squircle masks. 92% gives strong presence on Pixel/Samsung
+    # launchers; rounded-square masks may clip a few outer pixels of the
+    # circle, which is barely visible since those pixels are teal anyway.
     for sz in (192, 512):
-        m = fit_centered(src, sz, 0.80, BG)
+        m = fit_centered(src, sz, 0.92, BG)
         m.save(PUBLIC / f"android-chrome-maskable-{sz}.png", optimize=True)
-        print(f"wrote android-chrome-maskable-{sz}.png (teal bg, 80% safe)")
+        print(f"wrote android-chrome-maskable-{sz}.png (teal bg, 92%)")
 
 
 if __name__ == "__main__":
