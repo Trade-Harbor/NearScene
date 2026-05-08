@@ -6,7 +6,8 @@ import { Input } from '../components/ui/input';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import {
-  Search, MapPin, Calendar, Utensils, TreePine, Truck, Church as ChurchIcon, ArrowRight,
+  Search, MapPin, Calendar, Utensils, TreePine, Truck, Church as ChurchIcon,
+  Dumbbell, Gamepad2, ArrowRight,
 } from 'lucide-react';
 import { useLocation as useLocationContext } from '../context/LocationContext';
 import usePageTitle from '../hooks/usePageTitle';
@@ -16,7 +17,9 @@ const API_URL = process.env.REACT_APP_BACKEND_URL;
 const SECTIONS = [
   { key: 'events', label: 'Events', icon: Calendar, route: '/events', color: 'from-indigo-500 to-purple-500' },
   { key: 'restaurants', label: 'Restaurants', icon: Utensils, route: '/restaurants', color: 'from-orange-500 to-red-500' },
-  { key: 'attractions', label: 'Parks & Attractions', icon: TreePine, route: '/attractions', color: 'from-emerald-500 to-teal-500' },
+  { key: 'attractions', label: 'Parks & Outdoors', icon: TreePine, route: '/attractions', color: 'from-emerald-500 to-teal-500' },
+  { key: 'fitness', label: 'Fitness', icon: Dumbbell, route: '/fitness', color: 'from-cyan-500 to-blue-500' },
+  { key: 'activities', label: 'Activities', icon: Gamepad2, route: '/activities', color: 'from-fuchsia-500 to-pink-500' },
   { key: 'food_trucks', label: 'Food Trucks', icon: Truck, route: '/food-trucks', color: 'from-amber-500 to-orange-500' },
   { key: 'churches', label: 'Churches', icon: ChurchIcon, route: '/churches', color: 'from-rose-500 to-pink-500' },
 ];
@@ -25,6 +28,8 @@ const DETAIL_ROUTE = {
   events: (item) => `/events/${item.event_id}`,
   restaurants: (item) => `/restaurants/${item.restaurant_id}`,
   attractions: (item) => `/attractions/${item.attraction_id}`,
+  fitness: (item) => `/fitness/${item.attraction_id}`,
+  activities: (item) => `/activities/${item.attraction_id}`,
   food_trucks: (item) => `/food-trucks`, // food trucks index for now
   churches: (item) => `/churches/${item.church_id}`,
 };
@@ -33,6 +38,8 @@ const ITEM_NAME = {
   events: (i) => i.title,
   restaurants: (i) => i.name,
   attractions: (i) => i.name,
+  fitness: (i) => i.name,
+  activities: (i) => i.name,
   food_trucks: (i) => i.name,
   churches: (i) => i.name,
 };
@@ -40,7 +47,9 @@ const ITEM_NAME = {
 const ITEM_SUB = {
   events: (i) => i.location_name || i.city,
   restaurants: (i) => (i.categories || []).slice(0, 2).join(', ') || i.city,
-  attractions: (i) => i.category || i.city,
+  attractions: (i) => (i.attraction_type || i.category || i.city || '').replace(/_/g, ' '),
+  fitness: (i) => (i.attraction_type || i.category || i.city || '').replace(/_/g, ' '),
+  activities: (i) => (i.attraction_type || i.category || i.city || '').replace(/_/g, ' '),
   food_trucks: (i) => i.cuisine || i.city,
   churches: (i) => i.denomination || i.religion || i.city,
 };
@@ -99,7 +108,7 @@ export default function SearchResultsPage() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Try 'parks', 'gym', 'sushi', 'concert tonight'..."
-                className="pl-12 h-12 text-base rounded-full bg-white text-foreground"
+                className="pl-12 h-12 text-base rounded-full bg-background text-foreground border-0"
                 data-testid="search-input"
                 autoFocus
               />
