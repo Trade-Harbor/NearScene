@@ -2328,29 +2328,59 @@ async def unified_search(
             "total": 0,
             "groups": {
                 "events": [], "restaurants": [], "attractions": [],
-                "food_trucks": [], "churches": [],
+                "fitness": [], "activities": [], "food_trucks": [], "churches": [],
             },
         }
 
+    # Same category groups as routes/attractions.py — kept in sync
+    # manually rather than imported to avoid circular dependency.
+    ATTR_GROUPS = {
+        "outdoor": [
+            "park", "hiking_trail", "beach", "garden", "playground",
+            "landmark", "museum", "nature_reserve", "viewpoint", "historic_site",
+        ],
+        "fitness": [
+            "fitness", "sports_centre",
+            "tennis_court", "basketball_court", "pickleball_court",
+            "soccer_field", "volleyball_court",
+            "ice_rink", "skate_park",
+        ],
+        "activities": [
+            "golf_course", "mini_golf", "bowling", "go_karts", "arcade",
+            "swimming_pool", "water_park", "amusement",
+        ],
+    }
+
     # Per-collection field lists. Keep narrow to avoid noisy matches on
     # long descriptions; we'll relax this later if precision is too tight.
-    filters = {
+    text_filters = {
         "events": _build_search_filter(terms, ["title", "description", "tags", "category", "location_name"]),
         "restaurants": _build_search_filter(terms, ["name", "description", "categories", "city"]),
-        "attractions": _build_search_filter(terms, ["name", "description", "category", "tags", "city"]),
+        "attractions": _build_search_filter(terms, ["name", "description", "category", "tags", "city", "attraction_type"]),
         "food_trucks": _build_search_filter(terms, ["name", "description", "cuisine", "categories"]),
         "churches": _build_search_filter(terms, ["name", "description", "denomination", "religion", "city"]),
     }
 
-    # Run all 5 queries in parallel
-    events_t = db.events.find(filters["events"], {"_id": 0}).limit(limit_per_type).to_list(limit_per_type)
-    rests_t = db.restaurants.find(filters["restaurants"], {"_id": 0}).limit(limit_per_type).to_list(limit_per_type)
-    attrs_t = db.attractions.find(filters["attractions"], {"_id": 0}).limit(limit_per_type).to_list(limit_per_type)
-    trucks_t = db.food_trucks.find(filters["food_trucks"], {"_id": 0}).limit(limit_per_type).to_list(limit_per_type)
-    churches_t = db.churches.find(filters["churches"], {"_id": 0}).limit(limit_per_type).to_list(limit_per_type)
+    # For attractions, intersect the text filter with each category group's
+    # attraction_type whitelist so a "gym" search lands in the fitness
+    # bucket rather than getting lumped under generic "attractions".
+    def attr_filter_for(group_name: str) -> dict:
+        return {"$and": [
+            text_filters["attractions"],
+            {"attraction_type": {"$in": ATTR_GROUPS[group_name]}},
+        ]}
 
-    events, rests, attrs, trucks, churches = await asyncio.gather(
-        events_t, rests_t, attrs_t, trucks_t, churches_t
+    # Run queries in parallel — 5 base + 3 split attraction buckets
+    events_t = db.events.find(text_filters["events"], {"_id": 0}).limit(limit_per_type).to_list(limit_per_type)
+    rests_t = db.restaurants.find(text_filters["restaurants"], {"_id": 0}).limit(limit_per_type).to_list(limit_per_type)
+    outdoor_t = db.attractions.find(attr_filter_for("outdoor"), {"_id": 0}).limit(limit_per_type).to_list(limit_per_type)
+    fitness_t = db.attractions.find(attr_filter_for("fitness"), {"_id": 0}).limit(limit_per_type).to_list(limit_per_type)
+    activities_t = db.attractions.find(attr_filter_for("activities"), {"_id": 0}).limit(limit_per_type).to_list(limit_per_type)
+    trucks_t = db.food_trucks.find(text_filters["food_trucks"], {"_id": 0}).limit(limit_per_type).to_list(limit_per_type)
+    churches_t = db.churches.find(text_filters["churches"], {"_id": 0}).limit(limit_per_type).to_list(limit_per_type)
+
+    events, rests, outdoor, fitness, activities, trucks, churches = await asyncio.gather(
+        events_t, rests_t, outdoor_t, fitness_t, activities_t, trucks_t, churches_t
     )
 
     def add_distance(items, lat_key="latitude", lon_key="longitude"):
@@ -2368,7 +2398,9 @@ async def unified_search(
     groups = {
         "events": add_distance(events),
         "restaurants": add_distance(rests),
-        "attractions": add_distance(attrs),
+        "attractions": add_distance(outdoor),  # outdoor — the /attractions tab
+        "fitness": add_distance(fitness),       # the /fitness tab
+        "activities": add_distance(activities), # the /activities tab
         "food_trucks": add_distance(trucks),
         "churches": add_distance(churches),
     }
