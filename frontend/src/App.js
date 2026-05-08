@@ -30,6 +30,8 @@ import PrivacyPage from "./pages/PrivacyPage";
 import TermsPage from "./pages/TermsPage";
 import AboutPage from "./pages/AboutPage";
 import SearchResultsPage from "./pages/SearchResultsPage";
+import AdminDigestPage from "./pages/AdminDigestPage";
+import UnsubscribePage from "./pages/UnsubscribePage";
 
 // App Router
 function AppRouter() {
@@ -69,6 +71,8 @@ function AppRouter() {
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/about" element={<AboutPage />} />
               <Route path="/search" element={<SearchResultsPage />} />
+              <Route path="/admin/digest" element={<AdminDigestPage />} />
+              <Route path="/unsubscribe" element={<UnsubscribePage />} />
             </Routes>
           </Layout>
         }

@@ -2218,6 +2218,138 @@ async def admin_list_email_signups(
     return {"count": len(items), "items": items}
 
 
+# ============= EMAIL DIGEST =============
+# Weekly "what's happening in Wilmington" newsletter. Two pieces:
+#   1. Preview: build the HTML for any date range so admin can review
+#      it in a browser before sending.
+#   2. Send: blast the rendered digest to all subscribed emails. Done
+#      synchronously over SMTP — for the early stages with <500 subs
+#      this is fine. Move to a queue + Resend/SendGrid when it grows.
+#
+# The digest builder lives in digest.py; sending in email_helper.py.
+# Both can be swapped without touching the routes here.
+
+import digest as _digest
+import email_helper as _email_helper
+
+
+def _default_digest_range() -> tuple[str, str]:
+    """Default to the upcoming Friday through Sunday window. Weekly
+    digests typically go out Thursday/Friday morning for the weekend."""
+    now = datetime.now(timezone.utc)
+    # Days until Friday (weekday(): Mon=0 .. Sun=6, Fri=4)
+    days_to_fri = (4 - now.weekday()) % 7
+    if days_to_fri == 0 and now.hour > 12:
+        days_to_fri = 7
+    fri = (now + timedelta(days=days_to_fri)).replace(hour=0, minute=0, second=0, microsecond=0)
+    sun = fri + timedelta(days=2, hours=23, minutes=59)
+    return fri.isoformat(), sun.isoformat()
+
+
+@api_router.get("/admin/digest/preview", response_class=None)
+async def admin_digest_preview(
+    request: Request,
+    token: Optional[str] = None,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+):
+    """Admin: render the digest HTML for a date range so it can be
+    previewed in a browser. Returns HTML directly, not JSON, so the
+    admin page can drop it in an iframe."""
+    from fastapi.responses import HTMLResponse
+    _check_admin(request, token)
+    if not start or not end:
+        start, end = _default_digest_range()
+    # Replace the placeholder so the preview unsub link doesn't 404
+    site_url = os.environ.get("PUBLIC_FRONTEND_URL", "https://www.localdrift.app").rstrip("/")
+    html = await _digest.generate_digest_html(db, start_iso=start, end_iso=end, site_url=site_url)
+    html = html.replace("{{EMAIL}}", "preview@example.com")
+    return HTMLResponse(content=html)
+
+
+class DigestSendRequest(BaseModel):
+    start: Optional[str] = None
+    end: Optional[str] = None
+    subject_override: Optional[str] = None
+    test_to: Optional[str] = None  # if set, only send to this address (dry-run-ish)
+
+
+@api_router.post("/admin/digest/send")
+async def admin_digest_send(
+    body: DigestSendRequest,
+    request: Request,
+    token: Optional[str] = None,
+):
+    """Admin: send the digest to either every subscriber or a single
+    test_to address. Returns counts of attempted / sent / failed."""
+    _check_admin(request, token)
+    start = body.start or _default_digest_range()[0]
+    end = body.end or _default_digest_range()[1]
+    subject = body.subject_override or _digest.generate_digest_subject(start, end)
+    site_url = os.environ.get("PUBLIC_FRONTEND_URL", "https://www.localdrift.app").rstrip("/")
+    html_template = await _digest.generate_digest_html(db, start_iso=start, end_iso=end, site_url=site_url)
+
+    if body.test_to:
+        recipients = [{"email": body.test_to.strip().lower()}]
+    else:
+        cursor = db.email_signups.find(
+            {"unsubscribed": {"$ne": True}},
+            {"_id": 0, "email": 1},
+        )
+        recipients = await cursor.to_list(10000)
+
+    attempted = sent = failed = 0
+    for r in recipients:
+        addr = r.get("email")
+        if not addr:
+            continue
+        attempted += 1
+        # Personalize unsub link per recipient. The {{EMAIL}} token in
+        # digest.py gets URL-encoded so the unsubscribe page can pre-fill.
+        from urllib.parse import quote
+        html_personalized = html_template.replace("{{EMAIL}}", quote(addr))
+        ok = _email_helper.send_email(addr, subject, html_personalized)
+        if ok:
+            sent += 1
+        else:
+            failed += 1
+
+    # Log the send so admin can see history
+    await db.digest_runs.insert_one({
+        "ran_at": datetime.now(timezone.utc).isoformat(),
+        "start": start,
+        "end": end,
+        "subject": subject,
+        "attempted": attempted,
+        "sent": sent,
+        "failed": failed,
+        "test_mode": bool(body.test_to),
+    })
+    return {"attempted": attempted, "sent": sent, "failed": failed}
+
+
+@api_router.get("/admin/digest/runs")
+async def admin_digest_runs(request: Request, token: Optional[str] = None, limit: int = 50):
+    _check_admin(request, token)
+    cursor = db.digest_runs.find({}, {"_id": 0}).sort("ran_at", -1).limit(limit)
+    return await cursor.to_list(limit)
+
+
+# Public unsubscribe endpoint (one-click, no auth — the email address
+# itself is the token. Low-stakes: the worst an attacker can do is
+# unsubscribe someone else, which is reversible by re-signing up.)
+@api_router.post("/email-signups/unsubscribe")
+async def public_unsubscribe(email: str):
+    addr = (email or "").strip().lower()
+    if not addr:
+        raise HTTPException(status_code=400, detail="email required")
+    result = await db.email_signups.update_one(
+        {"email": addr},
+        {"$set": {"unsubscribed": True, "unsubscribed_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    return {"status": "unsubscribed" if result.matched_count else "not_found"}
+
+
 # ============= UNIFIED SEARCH =============
 # Cross-collection search powering the hero search bar. Single query string,
 # fans out to events, restaurants, attractions, food trucks, and churches in
