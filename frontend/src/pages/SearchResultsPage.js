@@ -88,6 +88,11 @@ export default function SearchResultsPage() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    // Blur the input so the mobile keyboard collapses; otherwise pressing
+    // the keyboard's down-arrow on Android is interpreted as a back nav.
+    if (typeof document !== 'undefined' && document.activeElement?.blur) {
+      document.activeElement.blur();
+    }
     if (input.trim()) setParams({ q: input.trim() });
   };
 
@@ -110,7 +115,6 @@ export default function SearchResultsPage() {
                 placeholder="Try 'parks', 'gym', 'sushi', 'concert tonight'..."
                 className="pl-12 h-12 text-base rounded-full bg-background text-foreground border-0"
                 data-testid="search-input"
-                autoFocus
               />
               <Button
                 type="submit"
