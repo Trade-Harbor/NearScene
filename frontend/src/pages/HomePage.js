@@ -82,6 +82,12 @@ export default function HomePage() {
 
   const handleSearch = (e) => {
     e.preventDefault();
+    // Dismiss the mobile keyboard before navigating. Without this, the
+    // keyboard stays up on the results page and the next tap of the
+    // Android down-arrow is interpreted by the browser as a back gesture.
+    if (typeof document !== 'undefined' && document.activeElement?.blur) {
+      document.activeElement.blur();
+    }
     if (searchQuery.trim()) {
       navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
     }
