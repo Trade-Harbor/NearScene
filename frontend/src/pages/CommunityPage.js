@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -50,7 +50,8 @@ import {
   Loader2,
   Award,
   Trophy,
-  Sparkles
+  Sparkles,
+  Trash2
 } from 'lucide-react';
 import usePageTitle from '../hooks/usePageTitle';
 
@@ -389,11 +390,12 @@ export default function CommunityPage() {
             ) : posts.length > 0 ? (
               <div className="space-y-4">
                 {posts.map((post) => (
-                  <PostCard 
-                    key={post.post_id} 
-                    post={post} 
+                  <PostCard
+                    key={post.post_id}
+                    post={post}
                     onVote={handleVote}
                     isAuthenticated={isAuthenticated}
+                    currentUser={user}
                     token={token}
                     onRefresh={fetchPosts}
                   />
@@ -531,15 +533,34 @@ export default function CommunityPage() {
   );
 }
 
-function PostCard({ post, onVote, isAuthenticated, token, onRefresh }) {
+function PostCard({ post, onVote, isAuthenticated, currentUser, token, onRefresh }) {
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [loadingComments, setLoadingComments] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const categoryIcon = CATEGORIES.find(c => c.value === post.category)?.icon || MessageSquare;
   const CategoryIcon = categoryIcon;
+  const isOwnPost = currentUser && post.author_id === currentUser.user_id;
+
+  const handleDelete = async () => {
+    if (!window.confirm('Delete this post? This cannot be undone.')) return;
+    setDeleting(true);
+    try {
+      await axios.delete(
+        `${API_URL}/api/community/posts/${post.post_id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success('Post deleted');
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to delete');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const fetchComments = async () => {
     setLoadingComments(true);
@@ -642,27 +663,47 @@ function PostCard({ post, onVote, isAuthenticated, token, onRefresh }) {
               </div>
             )}
 
-            {/* Footer */}
-            <div className="flex items-center justify-between text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <Avatar className="h-6 w-6">
+            {/* Footer — bigger touch targets for mobile */}
+            <div className="flex items-center justify-between gap-2 flex-wrap text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 min-w-0">
+                <Avatar className="h-6 w-6 flex-shrink-0">
                   <AvatarImage src={post.author_picture} />
                   <AvatarFallback className="text-xs">{post.author_name?.charAt(0)}</AvatarFallback>
                 </Avatar>
-                <span>{post.author_name}</span>
-                <span>•</span>
-                <span>{formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}</span>
+                <span className="truncate">{post.author_name}</span>
+                <span className="hidden sm:inline">•</span>
+                <span className="hidden sm:inline truncate">
+                  {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
+                </span>
               </div>
 
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleToggleComments}
-                className="gap-1"
-              >
-                <MessageCircle className="h-4 w-4" />
-                {post.comment_count}
-              </Button>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                {isOwnPost && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                    data-testid={`delete-post-${post.post_id}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span className="ml-1 hidden sm:inline">Delete</span>
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleToggleComments}
+                  className="gap-1.5 rounded-full"
+                  data-testid={`toggle-comments-${post.post_id}`}
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  <span>{showComments ? 'Hide' : 'Reply'}</span>
+                  <span className="text-muted-foreground">·</span>
+                  <span>{post.comment_count}</span>
+                </Button>
+              </div>
             </div>
 
             {/* Comments Section */}
@@ -698,18 +739,28 @@ function PostCard({ post, onVote, isAuthenticated, token, onRefresh }) {
                       )}
                     </div>
 
-                    {isAuthenticated && (
+                    {isAuthenticated ? (
                       <form onSubmit={handleSubmitComment} className="flex gap-2">
                         <Input
                           placeholder="Write a comment..."
                           value={newComment}
                           onChange={(e) => setNewComment(e.target.value)}
                           className="flex-1"
+                          data-testid={`comment-input-${post.post_id}`}
                         />
-                        <Button type="submit" disabled={submitting || !newComment.trim()}>
+                        <Button
+                          type="submit"
+                          disabled={submitting || !newComment.trim()}
+                          data-testid={`comment-submit-${post.post_id}`}
+                        >
                           {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                         </Button>
                       </form>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-2">
+                        <Link to="/login" className="text-primary hover:underline font-medium">Sign in</Link>
+                        {' '}to reply
+                      </p>
                     )}
                   </>
                 )}

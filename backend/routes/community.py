@@ -192,6 +192,24 @@ def setup_routes(db, calculate_distance, get_current_user, get_optional_user):
         
         return [ForumPostResponse(**p) for p in results[offset:offset + limit]]
     
+    @router.delete("/posts/{post_id}")
+    async def delete_post(post_id: str, user = Depends(get_current_user)):
+        """Delete a forum post. Only the original author can delete their
+        own post (admin/moderation deletes go through a separate admin
+        route)."""
+        post = await db.forum_posts.find_one({"post_id": post_id}, {"_id": 0})
+        if not post:
+            raise HTTPException(status_code=404, detail="Post not found")
+        if post.get("author_id") != user["user_id"]:
+            raise HTTPException(status_code=403, detail="You can only delete your own posts")
+
+        await db.forum_posts.delete_one({"post_id": post_id})
+        # Cascade: drop comments + votes attached to this post.
+        await db.comments.delete_many({"target_id": post_id, "target_type": "post"})
+        await db.votes.delete_many({"target_id": post_id, "target_type": "post"})
+        return {"deleted": True, "post_id": post_id}
+
+
     @router.get("/posts/{post_id}", response_model=ForumPostResponse)
     async def get_post(post_id: str):
         post = await db.forum_posts.find_one({"post_id": post_id}, {"_id": 0})

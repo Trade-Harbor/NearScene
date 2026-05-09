@@ -1437,8 +1437,20 @@ async def get_my_flash_deal_claims(user = Depends(get_current_user)):
 
 @api_router.post("/seed")
 async def seed_data():
-    """Seed database with sample data"""
-    
+    """Seed database with sample data.
+
+    Disabled in production: the original seed contains NYC demo
+    restaurants/events/forum-posts left over from the Emergent scaffold,
+    which polluted the Wilmington data with Manhattan/Brooklyn entries
+    when accidentally invoked. We rely on real ingestion (ticketmaster,
+    seatgeek, yelp, osm, churches) for live data instead.
+
+    To re-enable for local dev, set ALLOW_SEED=true in env."""
+    if os.environ.get("ALLOW_SEED", "").lower() != "true":
+        raise HTTPException(
+            status_code=403,
+            detail="Seed endpoint disabled. Set ALLOW_SEED=true to enable for dev.",
+        )
     # Check if already seeded
     existing_events = await db.events.count_documents({})
     if existing_events > 0:
