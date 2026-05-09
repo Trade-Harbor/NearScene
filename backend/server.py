@@ -560,7 +560,10 @@ async def get_events(
     
     # Only show upcoming or ongoing events
     query["start_date"] = {"$gte": (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()}
-    
+
+    # Hide auto-moderated events (flagged by N distinct users until admin review)
+    query["is_hidden"] = {"$ne": True}
+
     cursor = db.events.find(query, {"_id": 0})
     events = await cursor.to_list(1000)
     
@@ -889,7 +892,7 @@ async def create_comment(
 @api_router.get("/comments/{target_type}/{target_id}", response_model=List[CommentResponse])
 async def get_comments(target_type: str, target_id: str):
     comments = await db.comments.find(
-        {"target_type": target_type, "target_id": target_id},
+        {"target_type": target_type, "target_id": target_id, "is_hidden": {"$ne": True}},
         {"_id": 0}
     ).sort("created_at", -1).to_list(100)
     
@@ -2578,6 +2581,80 @@ REPORT_TARGET_TYPES = {"post", "comment", "event", "user"}
 REPORT_REASONS = {"spam", "abuse", "inappropriate", "misinformation", "other"}
 REPORT_STATUSES = {"pending", "reviewed", "actioned", "dismissed"}
 
+# Auto-moderation: once N distinct users report the same target, hide it
+# from public feeds pending admin review. Reports from the same user don't
+# stack — only distinct reporter_id values count, so a single bad actor
+# can't game the threshold by spamming reports.
+_AUTO_HIDE_THRESHOLD = 3
+
+
+async def _maybe_auto_hide(target_type: str, target_id: str) -> bool:
+    """Count distinct pending reporters and auto-hide the target if the
+    threshold is met. Returns True if the target was hidden by this call."""
+    distinct = await db.reports.distinct(
+        "reporter_id",
+        {"target_type": target_type, "target_id": target_id, "status": "pending"},
+    )
+    if len(distinct) < _AUTO_HIDE_THRESHOLD:
+        return False
+
+    # Field varies per collection — posts already use is_moderated which the
+    # community route filters on. Events and comments get a new is_hidden
+    # flag (filtered in their respective list endpoints).
+    now_iso = datetime.now(timezone.utc).isoformat()
+    if target_type == "post":
+        r = await db.forum_posts.update_one(
+            {"post_id": target_id, "is_moderated": {"$ne": True}},
+            {"$set": {"is_moderated": True, "auto_hidden_at": now_iso}},
+        )
+        return r.modified_count > 0
+    if target_type == "comment":
+        # Try both collections (forum_comments for community, comments for events)
+        r1 = await db.forum_comments.update_one(
+            {"comment_id": target_id, "is_hidden": {"$ne": True}},
+            {"$set": {"is_hidden": True, "auto_hidden_at": now_iso}},
+        )
+        r2 = await db.comments.update_one(
+            {"comment_id": target_id, "is_hidden": {"$ne": True}},
+            {"$set": {"is_hidden": True, "auto_hidden_at": now_iso}},
+        )
+        return (r1.modified_count + r2.modified_count) > 0
+    if target_type == "event":
+        r = await db.events.update_one(
+            {"event_id": target_id, "is_hidden": {"$ne": True}},
+            {"$set": {"is_hidden": True, "auto_hidden_at": now_iso}},
+        )
+        return r.modified_count > 0
+    return False
+
+
+async def _restore_target(target_type: str, target_id: str) -> bool:
+    """Reverse of _maybe_auto_hide — clear the hide flag so the content
+    becomes visible again. Used when admin dismisses a report."""
+    if target_type == "post":
+        r = await db.forum_posts.update_one(
+            {"post_id": target_id},
+            {"$set": {"is_moderated": False}, "$unset": {"auto_hidden_at": ""}},
+        )
+        return r.modified_count > 0
+    if target_type == "comment":
+        r1 = await db.forum_comments.update_one(
+            {"comment_id": target_id},
+            {"$set": {"is_hidden": False}, "$unset": {"auto_hidden_at": ""}},
+        )
+        r2 = await db.comments.update_one(
+            {"comment_id": target_id},
+            {"$set": {"is_hidden": False}, "$unset": {"auto_hidden_at": ""}},
+        )
+        return (r1.modified_count + r2.modified_count) > 0
+    if target_type == "event":
+        r = await db.events.update_one(
+            {"event_id": target_id},
+            {"$set": {"is_hidden": False}, "$unset": {"auto_hidden_at": ""}},
+        )
+        return r.modified_count > 0
+    return False
+
 
 class ReportCreate(BaseModel):
     target_type: str   # post | comment | event | user
@@ -2635,7 +2712,12 @@ async def submit_report(data: ReportCreate, request: Request):
         "ip": request.client.host if request.client else None,
     }
     await db.reports.insert_one(doc)
-    return {"report_id": report_id, "status": "received"}
+
+    # Auto-moderation: if N distinct users have flagged this target, hide
+    # it pending admin review. Same user reporting twice doesn't stack.
+    auto_hidden = await _maybe_auto_hide(data.target_type, data.target_id)
+
+    return {"report_id": report_id, "status": "received", "auto_hidden": auto_hidden}
 
 
 async def _resolve_user_from_request(request: Request) -> Optional[dict]:
@@ -2679,6 +2761,7 @@ class ReportReviewRequest(BaseModel):
     status: str          # reviewed | actioned | dismissed
     notes: Optional[str] = None
     delete_target: bool = False  # admin force-delete the reported content
+    restore_target: bool = False  # un-hide a falsely-auto-hidden target
 
 
 @api_router.post("/admin/reports/{report_id}/review")
@@ -2697,6 +2780,13 @@ async def admin_review_report(
     report = await db.reports.find_one({"report_id": report_id}, {"_id": 0})
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
+
+    # Restore (un-hide) takes priority over delete because if both flags
+    # are set we want a hard delete, not "restore-then-delete". So handle
+    # restore only when delete_target is False.
+    restored_target = False
+    if body.restore_target and not body.delete_target:
+        restored_target = await _restore_target(report["target_type"], report["target_id"])
 
     deleted_target = False
     if body.delete_target:
@@ -2721,9 +2811,15 @@ async def admin_review_report(
             "reviewer_notes": (body.notes or "").strip()[:1000] or None,
             "reviewed_at": datetime.now(timezone.utc).isoformat(),
             "deleted_target": deleted_target,
+            "restored_target": restored_target,
         }},
     )
-    return {"report_id": report_id, "status": body.status, "deleted_target": deleted_target}
+    return {
+        "report_id": report_id,
+        "status": body.status,
+        "deleted_target": deleted_target,
+        "restored_target": restored_target,
+    }
 
 
 # ============= LOCAL NEWS =============
