@@ -21,7 +21,8 @@ import {
   MessageCircle,
   ArrowLeft,
   ExternalLink,
-  Sparkles
+  Sparkles,
+  Trash2
 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
@@ -82,6 +83,19 @@ export default function EventDetailPage() {
       toast.error(error.response?.data?.detail || 'Failed to start promotion checkout');
     } finally {
       setPromoting(false);
+    }
+  };
+
+  const handleDeleteEvent = async () => {
+    if (!window.confirm('Delete this event? This cannot be undone.')) return;
+    try {
+      await axios.delete(`${API_URL}/api/events/${eventId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast.success('Event deleted');
+      navigate('/events');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to delete event');
     }
   };
 
@@ -531,6 +545,26 @@ export default function EventDetailPage() {
               <div className="mt-4 bg-card rounded-2xl p-4 shadow-lg dark:border dark:border-white/10 flex items-center gap-2" data-testid="event-promoted-badge">
                 <Sparkles className="h-4 w-4 text-amber-500" />
                 <span className="text-sm">This event is currently promoted.</span>
+              </div>
+            )}
+
+            {/* Organizer-only delete control. Backend rejects with 403
+                if anyone but the organizer hits the DELETE endpoint, so
+                this UI surface is the only thing gating it. */}
+            {user && event.organizer_id === user.user_id && (
+              <div className="mt-4 bg-card rounded-2xl p-4 shadow-lg dark:border dark:border-white/10" data-testid="organizer-controls">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
+                  Organizer controls
+                </p>
+                <Button
+                  variant="outline"
+                  className="w-full rounded-full text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                  onClick={handleDeleteEvent}
+                  data-testid="delete-event-btn"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete event
+                </Button>
               </div>
             )}
           </div>
