@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { useLocation as useLocationContext } from '../context/LocationContext';
 import { format } from 'date-fns';
+import ReportButton from '../components/ReportButton';
 import {
   Calendar,
   Clock,
@@ -545,6 +546,15 @@ export default function EventDetailPage() {
               <div className="mt-4 bg-card rounded-2xl p-4 shadow-lg dark:border dark:border-white/10 flex items-center gap-2" data-testid="event-promoted-badge">
                 <Sparkles className="h-4 w-4 text-amber-500" />
                 <span className="text-sm">This event is currently promoted.</span>
+              </div>
+            )}
+
+            {/* Non-organizer report button. Hidden for the organizer (they
+                wouldn't report their own event) and unauthenticated users
+                see a "sign in" toast on click. */}
+            {(!user || event.organizer_id !== user.user_id) && (
+              <div className="mt-4 flex justify-end">
+                <ReportButton targetType="event" targetId={event.event_id} variant="text" />
               </div>
             )}
 

@@ -54,6 +54,7 @@ import {
   Trash2
 } from 'lucide-react';
 import usePageTitle from '../hooks/usePageTitle';
+import ReportButton from '../components/ReportButton';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -678,7 +679,7 @@ function PostCard({ post, onVote, isAuthenticated, currentUser, token, onRefresh
               </div>
 
               <div className="flex items-center gap-1 flex-shrink-0">
-                {isOwnPost && (
+                {isOwnPost ? (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -690,6 +691,8 @@ function PostCard({ post, onVote, isAuthenticated, currentUser, token, onRefresh
                     <Trash2 className="h-4 w-4" />
                     <span className="ml-1 hidden sm:inline">Delete</span>
                   </Button>
+                ) : (
+                  <ReportButton targetType="post" targetId={post.post_id} />
                 )}
                 <Button
                   variant="outline"
@@ -716,23 +719,31 @@ function PostCard({ post, onVote, isAuthenticated, currentUser, token, onRefresh
                 ) : (
                   <>
                     <div className="space-y-3 mb-4">
-                      {comments.length > 0 ? comments.map((comment) => (
-                        <div key={comment.comment_id} className="flex gap-3 p-3 bg-muted/50 rounded-lg">
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src={comment.author_picture} />
-                            <AvatarFallback className="text-xs">{comment.author_name?.charAt(0)}</AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-sm font-medium">{comment.author_name}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
-                              </span>
+                      {comments.length > 0 ? comments.map((comment) => {
+                        const isOwnComment = currentUser && comment.author_id === currentUser.user_id;
+                        return (
+                          <div key={comment.comment_id} className="flex gap-3 p-3 bg-muted/50 rounded-lg">
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src={comment.author_picture} />
+                              <AvatarFallback className="text-xs">{comment.author_name?.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-sm font-medium truncate">{comment.author_name}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+                                </span>
+                                {!isOwnComment && (
+                                  <div className="ml-auto">
+                                    <ReportButton targetType="comment" targetId={comment.comment_id} />
+                                  </div>
+                                )}
+                              </div>
+                              <p className="text-sm break-words">{comment.content}</p>
                             </div>
-                            <p className="text-sm">{comment.content}</p>
                           </div>
-                        </div>
-                      )) : (
+                        );
+                      }) : (
                         <p className="text-sm text-muted-foreground text-center py-4">
                           No comments yet. Be the first to reply!
                         </p>
