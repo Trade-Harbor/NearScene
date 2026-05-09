@@ -2564,6 +2564,168 @@ async def unified_search(
     }
 
 
+# ============= USER REPORTS / MODERATION =============
+# Lightweight reporting system: any signed-in user can flag a forum post,
+# comment, event, or other user-submitted content for admin review. Admin
+# can review the queue and either take action (force-delete the target)
+# or dismiss the report.
+#
+# Schema kept deliberately narrow — no notifications, no auto-hide
+# thresholds, no mod logs. We can layer those on once the launch shows
+# what abuse actually looks like.
+
+REPORT_TARGET_TYPES = {"post", "comment", "event", "user"}
+REPORT_REASONS = {"spam", "abuse", "inappropriate", "misinformation", "other"}
+REPORT_STATUSES = {"pending", "reviewed", "actioned", "dismissed"}
+
+
+class ReportCreate(BaseModel):
+    target_type: str   # post | comment | event | user
+    target_id: str
+    reason: str        # spam | abuse | inappropriate | misinformation | other
+    details: Optional[str] = None  # free-text user-supplied context
+
+
+@api_router.post("/reports")
+async def submit_report(data: ReportCreate, request: Request):
+    """Authenticated users flag content for review.
+
+    Lightweight: stores the report + denormalizes some target metadata
+    so an admin can scan the queue without needing to cross-join. The
+    same target+reporter can be reported multiple times (rate limiting
+    can be added later if it's an issue)."""
+    user = await _resolve_user_from_request(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Sign in to report content")
+
+    if data.target_type not in REPORT_TARGET_TYPES:
+        raise HTTPException(status_code=400, detail=f"target_type must be one of {sorted(REPORT_TARGET_TYPES)}")
+    if data.reason not in REPORT_REASONS:
+        raise HTTPException(status_code=400, detail=f"reason must be one of {sorted(REPORT_REASONS)}")
+
+    # Pull a snapshot of the target so we can show admins what was flagged
+    # even if the original is deleted before review.
+    snapshot = {}
+    try:
+        if data.target_type == "post":
+            t = await db.forum_posts.find_one({"post_id": data.target_id}, {"_id": 0, "title": 1, "content": 1, "author_id": 1, "author_name": 1})
+            snapshot = t or {}
+        elif data.target_type == "comment":
+            t = await db.comments.find_one({"comment_id": data.target_id}, {"_id": 0, "content": 1, "author_id": 1, "author_name": 1})
+            snapshot = t or {}
+        elif data.target_type == "event":
+            t = await db.events.find_one({"event_id": data.target_id}, {"_id": 0, "title": 1, "description": 1, "organizer_id": 1, "organizer_name": 1})
+            snapshot = t or {}
+    except Exception:
+        snapshot = {}
+
+    report_id = f"rpt_{uuid.uuid4().hex[:12]}"
+    doc = {
+        "report_id": report_id,
+        "target_type": data.target_type,
+        "target_id": data.target_id,
+        "reason": data.reason,
+        "details": (data.details or "").strip()[:1000] or None,
+        "reporter_id": user["user_id"],
+        "reporter_name": user.get("name"),
+        "reporter_email": user.get("email"),
+        "target_snapshot": snapshot,
+        "status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "ip": request.client.host if request.client else None,
+    }
+    await db.reports.insert_one(doc)
+    return {"report_id": report_id, "status": "received"}
+
+
+async def _resolve_user_from_request(request: Request) -> Optional[dict]:
+    """Try to get the current user from the Authorization header without
+    forcing it (so the endpoint can return a clean 401 instead of FastAPI's
+    generic 'Not authenticated' error)."""
+    auth = request.headers.get("Authorization") or request.headers.get("authorization")
+    if not auth or not auth.lower().startswith("bearer "):
+        return None
+    token = auth.split(" ", 1)[1].strip()
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user = await db.users.find_one({"user_id": payload.get("user_id")}, {"_id": 0, "password": 0})
+        return user
+    except Exception:
+        return None
+
+
+@api_router.get("/admin/reports")
+async def admin_list_reports(
+    request: Request,
+    token: Optional[str] = None,
+    status_filter: Optional[str] = None,
+    limit: int = 100,
+):
+    """Admin: review the report queue. Default = pending only."""
+    _check_admin(request, token)
+    query: dict = {}
+    if status_filter:
+        if status_filter not in REPORT_STATUSES:
+            raise HTTPException(status_code=400, detail="invalid status filter")
+        query["status"] = status_filter
+    else:
+        query["status"] = "pending"
+    cursor = db.reports.find(query, {"_id": 0}).sort("created_at", -1).limit(limit)
+    items = await cursor.to_list(limit)
+    return {"count": len(items), "items": items}
+
+
+class ReportReviewRequest(BaseModel):
+    status: str          # reviewed | actioned | dismissed
+    notes: Optional[str] = None
+    delete_target: bool = False  # admin force-delete the reported content
+
+
+@api_router.post("/admin/reports/{report_id}/review")
+async def admin_review_report(
+    report_id: str,
+    body: ReportReviewRequest,
+    request: Request,
+    token: Optional[str] = None,
+):
+    """Admin: mark a report as reviewed/actioned/dismissed and optionally
+    force-delete the underlying target as a single action."""
+    _check_admin(request, token)
+    if body.status not in {"reviewed", "actioned", "dismissed"}:
+        raise HTTPException(status_code=400, detail="invalid status")
+
+    report = await db.reports.find_one({"report_id": report_id}, {"_id": 0})
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    deleted_target = False
+    if body.delete_target:
+        target_type = report["target_type"]
+        target_id = report["target_id"]
+        if target_type == "post":
+            r = await db.forum_posts.delete_one({"post_id": target_id})
+            await db.comments.delete_many({"target_id": target_id, "target_type": "post"})
+            await db.votes.delete_many({"target_id": target_id, "target_type": "post"})
+            deleted_target = r.deleted_count > 0
+        elif target_type == "comment":
+            r = await db.comments.delete_one({"comment_id": target_id})
+            deleted_target = r.deleted_count > 0
+        elif target_type == "event":
+            r = await db.events.delete_one({"event_id": target_id})
+            deleted_target = r.deleted_count > 0
+
+    await db.reports.update_one(
+        {"report_id": report_id},
+        {"$set": {
+            "status": body.status,
+            "reviewer_notes": (body.notes or "").strip()[:1000] or None,
+            "reviewed_at": datetime.now(timezone.utc).isoformat(),
+            "deleted_target": deleted_target,
+        }},
+    )
+    return {"report_id": report_id, "status": body.status, "deleted_target": deleted_target}
+
+
 # ============= LOCAL NEWS =============
 
 @api_router.get("/news")
