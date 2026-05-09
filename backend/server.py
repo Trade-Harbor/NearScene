@@ -1,4 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Query
+from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPBearer
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -2246,7 +2247,7 @@ def _default_digest_range() -> tuple[str, str]:
     return fri.isoformat(), sun.isoformat()
 
 
-@api_router.get("/admin/digest/preview", response_class=None)
+@api_router.get("/admin/digest/preview", response_class=HTMLResponse)
 async def admin_digest_preview(
     request: Request,
     token: Optional[str] = None,
@@ -2256,7 +2257,6 @@ async def admin_digest_preview(
     """Admin: render the digest HTML for a date range so it can be
     previewed in a browser. Returns HTML directly, not JSON, so the
     admin page can drop it in an iframe."""
-    from fastapi.responses import HTMLResponse
     _check_admin(request, token)
     if not start or not end:
         start, end = _default_digest_range()
