@@ -32,6 +32,7 @@ import AboutPage from "./pages/AboutPage";
 import SearchResultsPage from "./pages/SearchResultsPage";
 import AdminDigestPage from "./pages/AdminDigestPage";
 import UnsubscribePage from "./pages/UnsubscribePage";
+import NotFoundPage from "./pages/NotFoundPage";
 
 // App Router
 function AppRouter() {
@@ -73,6 +74,8 @@ function AppRouter() {
               <Route path="/search" element={<SearchResultsPage />} />
               <Route path="/admin/digest" element={<AdminDigestPage />} />
               <Route path="/unsubscribe" element={<UnsubscribePage />} />
+              {/* Catch-all 404 — must stay last inside the inner Routes */}
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </Layout>
         }

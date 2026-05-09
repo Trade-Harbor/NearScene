@@ -65,6 +65,14 @@ class SponsoredListing(BaseModel):
 
 
 # Subscription Plans
+# Beta mode: only one tier exists ("Free during beta"). The original
+# Emergent-scaffolded plan list promised AI recommendations, concierge
+# booking, monthly credits, analytics dashboards — none of which are
+# built. Removing those public-facing promises avoids credibility damage
+# at launch. The structure is preserved (single Free entry) so the
+# /api/subscriptions/plans endpoint and downstream code keep working.
+# When real pricing is decided post-launch, restore the multi-tier list
+# with feature claims trimmed to reality.
 SUBSCRIPTION_PLANS = [
     {
         "plan_id": "plan_free",
@@ -73,69 +81,13 @@ SUBSCRIPTION_PLANS = [
         "price_monthly": 0,
         "price_yearly": 0,
         "features": [
-            "Browse all events and attractions",
-            "View restaurant listings",
-            "Basic search and filters",
-            "Save up to 5 favorites",
-            "Standard event notifications"
+            "Browse all events, restaurants, and attractions",
+            "Search and filter across categories",
+            "Save favorites",
+            "Submit feedback to shape what gets built next",
         ],
-        "description": "Perfect for casual users exploring local events"
+        "description": "Free during beta — every feature, no paywalls."
     },
-    {
-        "plan_id": "plan_basic",
-        "name": "LocalDrift Plus",
-        "tier": "basic",
-        "price_monthly": 4.99,
-        "price_yearly": 47.88,  # 20% discount
-        "features": [
-            "All Free features",
-            "Unlimited favorites",
-            "Early access to popular events",
-            "Exclusive member discounts (5-15% off)",
-            "Ad-free experience",
-            "Priority customer support",
-            "Event reminders and calendar sync"
-        ],
-        "description": "For active event-goers who want more perks"
-    },
-    {
-        "plan_id": "plan_premium",
-        "name": "LocalDrift Premium",
-        "tier": "premium",
-        "price_monthly": 9.99,
-        "price_yearly": 95.88,  # 20% discount
-        "features": [
-            "All Plus features",
-            "AI-powered personalized recommendations",
-            "Exclusive VIP events access",
-            "Premium discounts (up to 25% off)",
-            "Free ticket upgrades when available",
-            "Concierge booking assistance",
-            "Monthly local experience credit ($10)",
-            "Early bird ticket access (24h before public)"
-        ],
-        "description": "The ultimate local experience with maximum savings"
-    },
-    {
-        "plan_id": "plan_business",
-        "name": "Business Partner",
-        "tier": "business",
-        "price_monthly": 49.99,
-        "price_yearly": 479.88,  # 20% discount
-        "features": [
-            "Post unlimited events",
-            "Featured listing placement",
-            "Analytics dashboard",
-            "Reduced commission rate (3% vs 5%)",
-            "Priority support",
-            "Promotional tools and marketing",
-            "QR code check-in system",
-            "Customer insights and demographics",
-            "Bulk ticket management",
-            "Partnership opportunities"
-        ],
-        "description": "Essential tools for businesses to reach local audiences"
-    }
 ]
 
 # Partnership Tiers

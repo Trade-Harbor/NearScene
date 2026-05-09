@@ -222,11 +222,9 @@ export const Navbar = () => {
                       My Food Trucks
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate('/create-event')} data-testid="menu-create-event">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create Event
-                  </DropdownMenuItem>
+                  {/* Create Event hidden during beta until the user-submission
+                      flow is fully tested. Route /create-event still works
+                      for direct-URL testing. */}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout} data-testid="menu-logout">
                     <LogOut className="mr-2 h-4 w-4" />
@@ -334,15 +332,8 @@ export const Navbar = () => {
               >
                 Pricing
               </Link>
-              {isAuthenticated && (
-                <Link 
-                  to="/create-event" 
-                  className="px-2 py-2 text-sm font-medium hover:bg-muted rounded-lg transition-colors"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Post Event
-                </Link>
-              )}
+              {/* "Post Event" mobile link hidden during beta — see comment
+                  in dropdown menu above. */}
               <div className="flex items-center space-x-1 px-2 py-2 text-sm text-muted-foreground">
                 <MapPin className="h-4 w-4" />
                 <span>{location?.city || 'Set Location'}</span>
@@ -392,9 +383,8 @@ export const Footer = () => {
             <h4 className="font-heading font-semibold mb-4">For Business</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li><Link to="/register?type=business" className="hover:text-foreground transition-colors">Business Account</Link></li>
-              <li><Link to="/create-event" className="hover:text-foreground transition-colors">Post an Event</Link></li>
-              <li><Link to="/pricing" className="hover:text-foreground transition-colors">Pricing Plans</Link></li>
-              <li><Link to="/dashboard" className="hover:text-foreground transition-colors">Promote Events</Link></li>
+              <li><Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link></li>
+              <li><a href="mailto:business@localdrift.app" className="hover:text-foreground transition-colors">Partner with us</a></li>
             </ul>
           </div>
           
