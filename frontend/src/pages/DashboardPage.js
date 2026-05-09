@@ -21,7 +21,8 @@ import {
   Clock,
   DollarSign,
   Users,
-  Loader2
+  Loader2,
+  Pencil
 } from 'lucide-react';
 import usePageTitle from '../hooks/usePageTitle';
 
@@ -221,11 +222,22 @@ export default function DashboardPage() {
             {myEvents.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {myEvents.map((event) => (
-                  <EventCard
-                    key={event.event_id}
-                    event={event}
-                    onClick={() => navigate(`/events/${event.event_id}`)}
-                  />
+                  <div key={event.event_id} className="space-y-2">
+                    <EventCard
+                      event={event}
+                      onClick={() => navigate(`/events/${event.event_id}`)}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full rounded-full"
+                      onClick={() => navigate(`/events/${event.event_id}/edit`)}
+                      data-testid={`edit-event-${event.event_id}`}
+                    >
+                      <Pencil className="h-3 w-3 mr-2" />
+                      Edit / Delete
+                    </Button>
+                  </div>
                 ))}
               </div>
             ) : (

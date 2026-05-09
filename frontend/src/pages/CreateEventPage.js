@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -28,7 +28,8 @@ import {
   Ticket,
   Loader2,
   ArrowLeft,
-  Plus
+  Plus,
+  Trash2
 } from 'lucide-react';
 import usePageTitle from '../hooks/usePageTitle';
 
@@ -57,10 +58,18 @@ const US_STATES = [
 ];
 
 export default function CreateEventPage() {
-  usePageTitle('Create Event');
+  // Same component handles both /create-event AND /events/:eventId/edit.
+  // When eventId is present in the URL we switch to edit mode: fetch
+  // the existing event, prefill the form, PUT on submit, and surface a
+  // Delete button at the bottom.
+  const { eventId } = useParams();
+  const isEditMode = Boolean(eventId);
+  usePageTitle(isEditMode ? 'Edit Event' : 'Create Event');
   const navigate = useNavigate();
   const { isAuthenticated, token, user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(isEditMode);
+  const [deleting, setDeleting] = useState(false);
   const [tagInput, setTagInput] = useState('');
 
   const [formData, setFormData] = useState({
@@ -92,6 +101,78 @@ export default function CreateEventPage() {
       navigate('/login');
     }
   }, [isAuthenticated, authLoading, navigate]);
+
+  // Edit mode: fetch the event and prefill the form.
+  useEffect(() => {
+    if (!isEditMode || !eventId || authLoading) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await axios.get(`${API_URL}/api/events/${eventId}`);
+        const ev = res.data;
+        if (cancelled) return;
+
+        // Block editing someone else's event at the UI layer too. Backend
+        // would 403 on PUT anyway but this avoids dead-end UX.
+        if (user && ev.organizer_id !== user.user_id) {
+          toast.error('You can only edit events you created');
+          navigate(`/events/${eventId}`);
+          return;
+        }
+
+        const start = ev.start_date ? new Date(ev.start_date) : null;
+        const end = ev.end_date ? new Date(ev.end_date) : null;
+        const fmtTime = (d) =>
+          d ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` : '';
+
+        setFormData({
+          title: ev.title || '',
+          description: ev.description || '',
+          category: ev.category || '',
+          start_date: start,
+          start_time: fmtTime(start) || '12:00',
+          end_date: end,
+          end_time: fmtTime(end),
+          location_name: ev.location_name || '',
+          address: ev.address || '',
+          city: ev.city || '',
+          state: ev.state || '',
+          zip_code: ev.zip_code || '',
+          latitude: ev.latitude ?? 34.2257,
+          longitude: ev.longitude ?? -77.9447,
+          image_url: ev.image_url || '',
+          is_paid: !!ev.is_paid,
+          ticket_price: ev.ticket_price ?? '',
+          discount_percentage: ev.discount_percentage ?? '',
+          total_tickets: ev.total_tickets ?? '',
+          tags: ev.tags || [],
+        });
+      } catch (err) {
+        toast.error('Could not load event');
+        navigate('/dashboard');
+      } finally {
+        if (!cancelled) setFetching(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isEditMode, eventId, authLoading, user, navigate]);
+
+  const handleDelete = async () => {
+    if (!eventId) return;
+    if (!window.confirm('Delete this event? This cannot be undone.')) return;
+    setDeleting(true);
+    try {
+      await axios.delete(`${API_URL}/api/events/${eventId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast.success('Event deleted');
+      navigate('/dashboard');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to delete event');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -187,24 +268,33 @@ export default function CreateEventPage() {
         tags: formData.tags
       };
 
-      const response = await axios.post(
-        `${API_URL}/api/events`,
-        eventData,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      toast.success('Event created successfully!');
-      navigate(`/events/${response.data.event_id}`);
+      let response;
+      if (isEditMode) {
+        response = await axios.put(
+          `${API_URL}/api/events/${eventId}`,
+          eventData,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        toast.success('Event updated');
+      } else {
+        response = await axios.post(
+          `${API_URL}/api/events`,
+          eventData,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        toast.success('Event created successfully!');
+      }
+      navigate(`/events/${response.data.event_id || eventId}`);
     } catch (error) {
-      console.error('Error creating event:', error);
-      toast.error(error.response?.data?.detail || 'Failed to create event');
+      console.error('Error saving event:', error);
+      toast.error(error.response?.data?.detail || 'Failed to save event');
     } finally {
       setLoading(false);
     }
   };
 
-  // Show loading while auth is checking
-  if (authLoading) {
+  // Show loading while auth is checking OR while fetching the event in edit mode
+  if (authLoading || fetching) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -227,8 +317,12 @@ export default function CreateEventPage() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="font-heading text-2xl md:text-3xl font-bold">Create New Event</h1>
-            <p className="text-muted-foreground">Share your event with the local community</p>
+            <h1 className="font-heading text-2xl md:text-3xl font-bold">
+              {isEditMode ? 'Edit Event' : 'Create New Event'}
+            </h1>
+            <p className="text-muted-foreground">
+              {isEditMode ? 'Update your event details' : 'Share your event with the local community'}
+            </p>
           </div>
         </div>
 
@@ -605,13 +699,37 @@ export default function CreateEventPage() {
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creating...
+                  {isEditMode ? 'Saving...' : 'Creating...'}
                 </>
               ) : (
-                'Create Event'
+                isEditMode ? 'Save changes' : 'Create Event'
               )}
             </Button>
           </div>
+
+          {/* Danger zone — only in edit mode */}
+          {isEditMode && (
+            <div className="bg-card rounded-2xl p-6 shadow-sm dark:border dark:border-red-500/30 border-red-200/50">
+              <h2 className="font-heading text-lg font-semibold mb-1 text-red-600 dark:text-red-400">Danger zone</h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                Once you delete an event, there's no undo. Tickets and comments tied to it will be removed too.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="w-full rounded-full border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950/30"
+                data-testid="delete-event-btn"
+              >
+                {deleting ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Deleting...</>
+                ) : (
+                  <><Trash2 className="h-4 w-4 mr-2" />Delete this event</>
+                )}
+              </Button>
+            </div>
+          )}
         </form>
       </div>
     </div>

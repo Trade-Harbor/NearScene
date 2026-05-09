@@ -64,6 +64,7 @@ function AppRouter() {
               <Route path="/pricing" element={<PricingPage />} />
               <Route path="/flash-deals" element={<FlashDealsPage />} />
               <Route path="/create-event" element={<CreateEventPage />} />
+              <Route path="/events/:eventId/edit" element={<CreateEventPage />} />
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/my-events" element={<DashboardPage />} />
               <Route path="/my-tickets" element={<DashboardPage />} />
