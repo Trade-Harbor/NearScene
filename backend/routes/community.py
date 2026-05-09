@@ -324,7 +324,7 @@ def setup_routes(db, calculate_distance, get_current_user, get_optional_user):
     @router.get("/posts/{post_id}/comments", response_model=List[ForumCommentResponse])
     async def get_comments(post_id: str):
         comments = await db.forum_comments.find(
-            {"post_id": post_id},
+            {"post_id": post_id, "is_hidden": {"$ne": True}},
             {"_id": 0}
         ).sort("created_at", 1).to_list(100)
         
