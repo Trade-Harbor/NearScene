@@ -9,7 +9,7 @@ import usePageTitle from '../hooks/usePageTitle';
 // Have a lawyer review before scaling commercially.
 export default function PrivacyPage() {
   usePageTitle('Privacy Policy');
-  const lastUpdated = 'May 4, 2026';
+  const lastUpdated = 'May 9, 2026';
 
   return (
     <div className="min-h-screen bg-background" data-testid="privacy-page">
@@ -60,12 +60,28 @@ export default function PrivacyPage() {
               <li>
                 <strong>Usage information.</strong> Standard server logs (IP address, browser
                 user-agent, request paths, timestamps) are kept for security and debugging
-                purposes for up to 30 days.
+                purposes. Retention is governed by our hosting provider's defaults; we do
+                not actively archive or analyze these logs beyond debugging recent issues.
               </li>
               <li>
                 <strong>Feedback you send.</strong> If you submit feedback through the in-app
                 form, we store the message, optional name, and optional email so we can
                 respond.
+              </li>
+              <li>
+                <strong>Email signups.</strong> If you opt in via the homepage or About-page
+                signup form, we store your email address (lowercased), an indicator of which
+                surface you signed up from, and the timestamp. We use this list only to send
+                LocalDrift updates (such as the weekly "what's happening" digest). You can
+                unsubscribe any time via the link at the bottom of any email or by visiting
+                /unsubscribe.
+              </li>
+              <li>
+                <strong>Reports of other users' content.</strong> If you flag a post, comment,
+                or event for moderation, we store the report (reason, optional details, the
+                target it relates to, your account id, and IP address). This is used for
+                community-safety review and may be shared with the affected user only when
+                strictly necessary to resolve a dispute.
               </li>
             </ul>
           </section>
@@ -106,11 +122,24 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="font-heading text-2xl font-semibold mb-3">Cookies and local storage</h2>
+            <h2 className="font-heading text-2xl font-semibold mb-3">Cookies, local storage, and analytics</h2>
             <p>
               We use browser localStorage to remember your login session, your selected
-              location, and beta-banner dismissal. We do not use third-party tracking
-              cookies during the beta.
+              location, and beta-banner dismissal. We do not use third-party advertising
+              cookies.
+            </p>
+            <p className="mt-3">
+              We use <strong>Vercel Analytics</strong> and <strong>Vercel Speed Insights</strong>
+              {' '}to understand which pages people visit and how the site performs. These
+              services do not use cookies, do not collect personally identifying information,
+              and aggregate data at the page-level only (not per-user). Read more at{' '}
+              <a href="https://vercel.com/docs/analytics/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                vercel.com/docs/analytics/privacy-policy
+              </a>.
+            </p>
+            <p className="mt-3">
+              Browsers that send a "Do Not Track" signal: we honor it by not enabling any
+              additional tracking beyond what's described above.
             </p>
           </section>
 
@@ -153,8 +182,8 @@ export default function PrivacyPage() {
             <h2 className="font-heading text-2xl font-semibold mb-3">Security</h2>
             <p>
               We use industry-standard practices: passwords are hashed with bcrypt,
-              connections use HTTPS, and the database is hosted on MongoDB Atlas. No
-              system is perfectly secure, however, and we cannot guarantee absolute
+              connections use HTTPS, and data is held in a secure cloud-hosted database.
+              No system is perfectly secure, however, and we cannot guarantee absolute
               security — please use a unique password and notify us if you suspect
               unauthorized access.
             </p>
