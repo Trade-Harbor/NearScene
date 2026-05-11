@@ -31,6 +31,7 @@ import TermsPage from "./pages/TermsPage";
 import AboutPage from "./pages/AboutPage";
 import SearchResultsPage from "./pages/SearchResultsPage";
 import AdminDigestPage from "./pages/AdminDigestPage";
+import AdminReportsPage from "./pages/AdminReportsPage";
 import UnsubscribePage from "./pages/UnsubscribePage";
 import NotFoundPage from "./pages/NotFoundPage";
 
@@ -74,6 +75,7 @@ function AppRouter() {
               <Route path="/about" element={<AboutPage />} />
               <Route path="/search" element={<SearchResultsPage />} />
               <Route path="/admin/digest" element={<AdminDigestPage />} />
+              <Route path="/admin/reports" element={<AdminReportsPage />} />
               <Route path="/unsubscribe" element={<UnsubscribePage />} />
               {/* Catch-all 404 — must stay last inside the inner Routes */}
               <Route path="*" element={<NotFoundPage />} />

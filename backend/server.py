@@ -602,11 +602,24 @@ async def get_events(
     return [EventResponse(**e) for e in paginated]
 
 @events_router.get("/{event_id}", response_model=EventResponse)
-async def get_event(event_id: str, latitude: Optional[float] = None, longitude: Optional[float] = None):
+async def get_event(
+    event_id: str,
+    request: Request,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
+):
     event = await db.events.find_one({"event_id": event_id}, {"_id": 0})
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
-    
+
+    # Hide auto-moderated events from everyone except the organizer.
+    # Closes the "direct URL still works on hidden events" gap.
+    if event.get("is_hidden"):
+        viewer = await _resolve_user_from_request(request)
+        is_organizer = viewer and event.get("organizer_id") == viewer.get("user_id")
+        if not is_organizer:
+            raise HTTPException(status_code=404, detail="Event not found")
+
     # Parse dates
     if isinstance(event["start_date"], str):
         event["start_date"] = datetime.fromisoformat(event["start_date"])
