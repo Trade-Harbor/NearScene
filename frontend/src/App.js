@@ -26,6 +26,8 @@ import TicketSuccessPage from "./pages/TicketSuccessPage";
 import PricingPage from "./pages/PricingPage";
 import FlashDealsPage from "./pages/FlashDealsPage";
 import LoginPage, { AuthCallback } from "./pages/AuthPages";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import PrivacyPage from "./pages/PrivacyPage";
 import TermsPage from "./pages/TermsPage";
 import AboutPage from "./pages/AboutPage";
@@ -42,6 +44,8 @@ function AppRouter() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<LoginPage />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route
         path="/*"
         element={

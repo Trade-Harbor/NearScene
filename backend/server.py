@@ -437,6 +437,141 @@ async def logout(request: Request, response_obj = None):
         await db.user_sessions.delete_one({"session_token": session_token})
     return {"message": "Logged out"}
 
+
+# ============= PASSWORD RESET =============
+# Standard email-based recovery. Flow:
+#   1. POST /api/auth/forgot-password { email } -> always returns success
+#      (don't leak which emails are registered). If the email exists, an
+#      email with a reset link is sent.
+#   2. User clicks the link, which lands on /reset-password?token=...
+#      The token is opaque (UUID), single-use, expires after 1 hour.
+#   3. POST /api/auth/reset-password { token, new_password } -> updates
+#      the user's password hash and consumes the token.
+
+_RESET_TTL_HOURS = 1
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+@auth_router.post("/forgot-password")
+async def forgot_password(data: ForgotPasswordRequest, request: Request):
+    """Initiate password reset. Always returns 200 with a generic
+    message regardless of whether the email is registered — avoids
+    leaking the user list."""
+    email = (data.email or "").strip().lower()
+    response_payload = {
+        "status": "ok",
+        "message": "If an account exists for that email, you'll receive a reset link shortly.",
+    }
+    if not email:
+        return response_payload
+
+    user = await db.users.find_one({"email": email}, {"_id": 0, "user_id": 1, "name": 1, "email": 1})
+    if not user:
+        return response_payload
+
+    # Generate single-use reset token. We store the raw token; hashing it
+    # would be more defensive but the trade-off isn't worth it at this
+    # scale (tokens are single-use + short-lived).
+    reset_token = uuid.uuid4().hex
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(hours=_RESET_TTL_HOURS)
+
+    # Invalidate any pending tokens for this user so old links from a
+    # previous request stop working as soon as a new one is issued.
+    await db.password_resets.delete_many({"user_id": user["user_id"], "used_at": None})
+
+    await db.password_resets.insert_one({
+        "reset_id": f"rst_{uuid.uuid4().hex[:12]}",
+        "user_id": user["user_id"],
+        "email": email,
+        "token": reset_token,
+        "created_at": now.isoformat(),
+        "expires_at": expires_at.isoformat(),
+        "used_at": None,
+        "ip": request.client.host if request.client else None,
+    })
+
+    site_url = os.environ.get("PUBLIC_FRONTEND_URL", "https://www.localdrift.app").rstrip("/")
+    reset_link = f"{site_url}/reset-password?token={reset_token}"
+    name = user.get("name") or "there"
+
+    html = f"""<!doctype html>
+<html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f3f4f6;padding:24px;">
+  <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;">
+    <div style="background:#1e6b6b;padding:24px;color:#fff;">
+      <div style="font-size:22px;font-weight:700;">Reset your password</div>
+    </div>
+    <div style="padding:24px;color:#111827;line-height:1.55;">
+      <p>Hi {escape_html(name)},</p>
+      <p>We got a request to reset your LocalDrift password. Click the button below to choose a new one. This link expires in {_RESET_TTL_HOURS} hour.</p>
+      <p style="text-align:center;margin:24px 0;">
+        <a href="{reset_link}" style="background:#1e6b6b;color:#fff;text-decoration:none;padding:12px 24px;border-radius:9999px;font-weight:600;display:inline-block;">Reset password</a>
+      </p>
+      <p style="font-size:13px;color:#6b7280;">If the button doesn't work, copy this link into your browser:<br>
+        <span style="word-break:break-all;">{reset_link}</span>
+      </p>
+      <p style="font-size:13px;color:#6b7280;margin-top:24px;">
+        If you didn't request a password reset, you can safely ignore this email.
+      </p>
+    </div>
+  </div>
+</body></html>"""
+
+    text = f"Reset your LocalDrift password by visiting: {reset_link}\n\nThis link expires in {_RESET_TTL_HOURS} hour. If you didn't request a reset, ignore this email."
+
+    import email_helper as _eh
+    _eh.send_email(email, "Reset your LocalDrift password", html, text_fallback=text)
+
+    return response_payload
+
+
+@auth_router.post("/reset-password")
+async def reset_password(data: ResetPasswordRequest):
+    """Consume a reset token and set the new password. Tokens are
+    single-use and time-limited."""
+    if not data.token or not data.new_password:
+        raise HTTPException(status_code=400, detail="Token and new password required")
+    if len(data.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+
+    reset_doc = await db.password_resets.find_one({"token": data.token, "used_at": None}, {"_id": 0})
+    if not reset_doc:
+        raise HTTPException(status_code=400, detail="Invalid or already-used reset link")
+
+    expires_at = reset_doc.get("expires_at")
+    if isinstance(expires_at, str):
+        expires_at = datetime.fromisoformat(expires_at)
+    if expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="This reset link has expired. Request a new one.")
+
+    new_hash = hash_password(data.new_password)
+    await db.users.update_one(
+        {"user_id": reset_doc["user_id"]},
+        {"$set": {"password": new_hash, "password_updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    await db.password_resets.update_one(
+        {"token": data.token},
+        {"$set": {"used_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    # Invalidate any other active sessions for this user — forces a
+    # re-login on all devices, which is what users expect after a reset.
+    await db.user_sessions.delete_many({"user_id": reset_doc["user_id"]})
+
+    return {"status": "ok", "message": "Password reset successfully. You can sign in now."}
+
+
+def escape_html(s: str) -> str:
+    """Minimal HTML-escape for values embedded in the reset email."""
+    return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
 # ============= EVENT ROUTES =============
 
 EVENT_CATEGORIES = [
