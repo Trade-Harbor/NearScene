@@ -205,20 +205,77 @@ def setup_routes(db, calculate_distance, get_current_user, get_optional_user):
 
         await db.forum_posts.delete_one({"post_id": post_id})
         # Cascade: drop comments + votes attached to this post.
-        await db.comments.delete_many({"target_id": post_id, "target_type": "post"})
+        await db.forum_comments.delete_many({"post_id": post_id})
         await db.votes.delete_many({"target_id": post_id, "target_type": "post"})
         return {"deleted": True, "post_id": post_id}
 
 
-    @router.get("/posts/{post_id}", response_model=ForumPostResponse)
-    async def get_post(post_id: str):
+    @router.put("/posts/{post_id}", response_model=ForumPostResponse)
+    async def update_post(post_id: str, data: ForumPostCreate, user = Depends(get_current_user)):
+        """Author edits their own forum post. Mutates title, content,
+        category, tags, and location flag — preserves vote tally and
+        comment count. Backend independently 403s if author doesn't
+        match."""
         post = await db.forum_posts.find_one({"post_id": post_id}, {"_id": 0})
         if not post:
             raise HTTPException(status_code=404, detail="Post not found")
-        
+        if post.get("author_id") != user["user_id"]:
+            raise HTTPException(status_code=403, detail="You can only edit your own posts")
+
+        update_data = {
+            "title": data.title,
+            "content": data.content,
+            "category": data.category,
+            "tags": data.tags,
+            "location_specific": data.location_specific,
+            "latitude": data.latitude,
+            "longitude": data.longitude,
+            "neighborhood": data.neighborhood,
+            "edited_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.forum_posts.update_one({"post_id": post_id}, {"$set": update_data})
+
+        updated = await db.forum_posts.find_one({"post_id": post_id}, {"_id": 0})
+        if isinstance(updated.get("created_at"), str):
+            updated["created_at"] = datetime.fromisoformat(updated["created_at"])
+        return ForumPostResponse(**updated)
+
+
+    @router.delete("/posts/{post_id}/comments/{comment_id}")
+    async def delete_comment(post_id: str, comment_id: str, user = Depends(get_current_user)):
+        """Author deletes their own comment on a post. Decrements the
+        parent post's comment_count so the counter stays accurate."""
+        comment = await db.forum_comments.find_one({"comment_id": comment_id}, {"_id": 0})
+        if not comment:
+            raise HTTPException(status_code=404, detail="Comment not found")
+        if comment.get("author_id") != user["user_id"]:
+            raise HTTPException(status_code=403, detail="You can only delete your own comments")
+
+        await db.forum_comments.delete_one({"comment_id": comment_id})
+        await db.forum_posts.update_one(
+            {"post_id": post_id, "comment_count": {"$gt": 0}},
+            {"$inc": {"comment_count": -1}},
+        )
+        return {"deleted": True, "comment_id": comment_id}
+
+
+    @router.get("/posts/{post_id}", response_model=ForumPostResponse)
+    async def get_post(post_id: str, user = Depends(get_optional_user)):
+        post = await db.forum_posts.find_one({"post_id": post_id}, {"_id": 0})
+        if not post:
+            raise HTTPException(status_code=404, detail="Post not found")
+
+        # Hide auto-moderated content from everyone except the author.
+        # Closes the "direct URL still works for hidden content" gap.
+        # (Admin-via-token can still hit the admin endpoints if needed.)
+        if post.get("is_moderated"):
+            is_author = user and post.get("author_id") == user.get("user_id")
+            if not is_author:
+                raise HTTPException(status_code=404, detail="Post not found")
+
         if isinstance(post.get("created_at"), str):
             post["created_at"] = datetime.fromisoformat(post["created_at"])
-        
+
         return ForumPostResponse(**post)
     
     @router.post("/posts/{post_id}/vote")

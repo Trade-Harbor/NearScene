@@ -51,7 +51,8 @@ import {
   Award,
   Trophy,
   Sparkles,
-  Trash2
+  Trash2,
+  Pencil
 } from 'lucide-react';
 import usePageTitle from '../hooks/usePageTitle';
 import ReportButton from '../components/ReportButton';
@@ -541,10 +542,61 @@ function PostCard({ post, onVote, isAuthenticated, currentUser, token, onRefresh
   const [loadingComments, setLoadingComments] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(post.title);
+  const [editContent, setEditContent] = useState(post.content);
+  const [editCategory, setEditCategory] = useState(post.category);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const categoryIcon = CATEGORIES.find(c => c.value === post.category)?.icon || MessageSquare;
   const CategoryIcon = categoryIcon;
   const isOwnPost = currentUser && post.author_id === currentUser.user_id;
+
+  const handleSaveEdit = async () => {
+    if (!editTitle.trim() || !editContent.trim()) {
+      toast.error('Title and content are required');
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      await axios.put(
+        `${API_URL}/api/community/posts/${post.post_id}`,
+        {
+          title: editTitle.trim(),
+          content: editContent.trim(),
+          category: editCategory,
+          tags: post.tags || [],
+          location_specific: post.location_specific || false,
+          latitude: post.latitude,
+          longitude: post.longitude,
+          neighborhood: post.neighborhood,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success('Post updated');
+      setEditing(false);
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to update');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    if (!window.confirm('Delete this comment?')) return;
+    try {
+      await axios.delete(
+        `${API_URL}/api/community/posts/${post.post_id}/comments/${commentId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success('Comment deleted');
+      fetchComments();
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to delete comment');
+    }
+  };
 
   const handleDelete = async () => {
     if (!window.confirm('Delete this post? This cannot be undone.')) return;
@@ -648,10 +700,58 @@ function PostCard({ post, onVote, isAuthenticated, currentUser, token, onRefresh
               )}
             </div>
 
-            <h3 className="font-semibold text-lg mb-2">{post.title}</h3>
-            <p className="text-sm text-muted-foreground mb-3 line-clamp-3">
-              {post.content}
-            </p>
+            {editing ? (
+              <div className="space-y-3 mb-3" data-testid={`edit-form-${post.post_id}`}>
+                <Select value={editCategory} onValueChange={setEditCategory}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map((c) => (
+                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  placeholder="Title"
+                  className="font-semibold"
+                />
+                <Textarea
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  rows={4}
+                  placeholder="What's on your mind?"
+                />
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEditing(false);
+                      setEditTitle(post.title);
+                      setEditContent(post.content);
+                      setEditCategory(post.category);
+                    }}
+                    disabled={savingEdit}
+                  >
+                    Cancel
+                  </Button>
+                  <Button size="sm" onClick={handleSaveEdit} disabled={savingEdit}>
+                    {savingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save changes'}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <h3 className="font-semibold text-lg mb-2">{post.title}</h3>
+                <p className="text-sm text-muted-foreground mb-3 line-clamp-3">
+                  {post.content}
+                </p>
+                {post.edited_at && (
+                  <p className="text-xs text-muted-foreground italic mb-2">(edited)</p>
+                )}
+              </>
+            )}
 
             {/* Tags */}
             {post.tags?.length > 0 && (
@@ -680,17 +780,28 @@ function PostCard({ post, onVote, isAuthenticated, currentUser, token, onRefresh
 
               <div className="flex items-center gap-1 flex-shrink-0">
                 {isOwnPost ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleDelete}
-                    disabled={deleting}
-                    className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                    data-testid={`delete-post-${post.post_id}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    <span className="ml-1 hidden sm:inline">Delete</span>
-                  </Button>
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditing(true)}
+                      data-testid={`edit-post-${post.post_id}`}
+                    >
+                      <Pencil className="h-4 w-4" />
+                      <span className="ml-1 hidden sm:inline">Edit</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleDelete}
+                      disabled={deleting}
+                      className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                      data-testid={`delete-post-${post.post_id}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span className="ml-1 hidden sm:inline">Delete</span>
+                    </Button>
+                  </>
                 ) : (
                   <ReportButton targetType="post" targetId={post.post_id} />
                 )}
@@ -733,11 +844,21 @@ function PostCard({ post, onVote, isAuthenticated, currentUser, token, onRefresh
                                 <span className="text-xs text-muted-foreground">
                                   {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
                                 </span>
-                                {!isOwnComment && (
-                                  <div className="ml-auto">
+                                <div className="ml-auto flex items-center gap-1">
+                                  {isOwnComment ? (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleDeleteComment(comment.comment_id)}
+                                      className="h-7 px-2 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                                      data-testid={`delete-comment-${comment.comment_id}`}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  ) : (
                                     <ReportButton targetType="comment" targetId={comment.comment_id} />
-                                  </div>
-                                )}
+                                  )}
+                                </div>
                               </div>
                               <p className="text-sm break-words">{comment.content}</p>
                             </div>
