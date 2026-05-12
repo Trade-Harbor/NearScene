@@ -27,10 +27,16 @@
         <meta name="twitter:description" content="Discover everything happening near Wilmington, NC. Events, restaurants, food trucks, parks, fitness, and activities all in one place. Free during beta." />
         <meta name="twitter:image" content="https://localdrift.app/logo.png" />
 
-        <!-- Favicons (generated via favicon.io from the LocalDrift L-mark) -->
+        <!-- Favicons. Multiple sizes so each surface picks the best:
+             - 16/32 for browser tabs
+             - 96 is Google's preferred favicon-in-search size
+             - 192 is the largest, used by Android Chrome + Google when
+               it wants to render the result thumbnail at higher DPI -->
         <link rel="icon" type="image/x-icon" href="%PUBLIC_URL%/favicon.ico" />
-        <link rel="icon" type="image/png" sizes="32x32" href="%PUBLIC_URL%/favicon-32x32.png" />
         <link rel="icon" type="image/png" sizes="16x16" href="%PUBLIC_URL%/favicon-16x16.png" />
+        <link rel="icon" type="image/png" sizes="32x32" href="%PUBLIC_URL%/favicon-32x32.png" />
+        <link rel="icon" type="image/png" sizes="96x96" href="%PUBLIC_URL%/favicon-96x96.png" />
+        <link rel="icon" type="image/png" sizes="192x192" href="%PUBLIC_URL%/android-chrome-192x192.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="%PUBLIC_URL%/apple-touch-icon.png" />
         <link rel="manifest" href="%PUBLIC_URL%/site.webmanifest" />
 
