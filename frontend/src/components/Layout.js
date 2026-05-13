@@ -89,12 +89,14 @@ export const Navbar = () => {
             <span className="font-heading font-bold text-xl gradient-brand-text hidden sm:block">LocalDrift</span>
           </Link>
 
-          {/* Desktop Navigation — show at lg+ (1024px) rather than md+
-              because there are 9 nav links plus a location indicator,
-              theme toggle, and auth buttons. At md (768-1023) the row
-              overflows and items overlap. Below lg we fall back to the
-              hamburger menu. */}
-          <div className="hidden lg:flex items-center space-x-5">
+          {/* Desktop Navigation — show only at xl+ (1280px). Nine links
+              plus location indicator, theme toggle, and auth buttons
+              don't fit cleanly below that — "Food Trucks" wraps and
+              everything else gets shoved sideways. Below xl we use the
+              hamburger menu (mobile drawer), which already scales well.
+              whitespace-nowrap prevents "Food Trucks" from breaking
+              even if a future tweak pinches widths. */}
+          <div className="hidden xl:flex items-center gap-x-5 mx-6 whitespace-nowrap">
             <Link 
               to="/events" 
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
@@ -256,12 +258,12 @@ export const Navbar = () => {
               </div>
             )}
 
-            {/* Mobile Menu Toggle — visible below lg (matches the
-                desktop nav's hidden-until-lg breakpoint) */}
+            {/* Mobile Menu Toggle — visible below xl (matches the
+                desktop nav's hidden-until-xl breakpoint) */}
             <Button
               variant="ghost"
               size="icon"
-              className="lg:hidden"
+              className="xl:hidden"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               data-testid="mobile-menu-toggle"
             >
@@ -272,7 +274,7 @@ export const Navbar = () => {
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="lg:hidden border-t border-border py-4 animate-slide-up" data-testid="mobile-menu">
+          <div className="xl:hidden border-t border-border py-4 animate-slide-up" data-testid="mobile-menu">
             <div className="flex flex-col space-y-3">
               <Link 
                 to="/events" 
