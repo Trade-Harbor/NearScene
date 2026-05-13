@@ -54,8 +54,12 @@ export default function EventsPage() {
   
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [viewMode, setViewMode] = useState('grid'); // grid or map
   const [showFilters, setShowFilters] = useState(false);
+
+  const PAGE_SIZE = 50;
   
   // Filter states
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
@@ -75,38 +79,59 @@ export default function EventsPage() {
     if (searchParam) setSearchQuery(searchParam);
   }, [searchParams]);
 
+  const buildParams = (offset = 0, limit = PAGE_SIZE) => {
+    const params = {
+      latitude: location?.latitude,
+      longitude: location?.longitude,
+      radius,
+      limit,
+      offset,
+    };
+    if (selectedCategory && selectedCategory !== 'all') params.category = selectedCategory;
+    if (searchQuery) params.search = searchQuery;
+    if (selectedDate) params.start_date = format(selectedDate, 'yyyy-MM-dd');
+    if (freeOnly) params.is_free = true;
+    return params;
+  };
+
   const fetchEvents = async () => {
     setLoading(true);
     try {
-      const params = {
-        latitude: location?.latitude,
-        longitude: location?.longitude,
-        radius: radius,
-        limit: 50
-      };
-
-      if (selectedCategory && selectedCategory !== 'all') {
-        params.category = selectedCategory;
-      }
-
-      if (searchQuery) {
-        params.search = searchQuery;
-      }
-
-      if (selectedDate) {
-        params.start_date = format(selectedDate, 'yyyy-MM-dd');
-      }
-
-      if (freeOnly) {
-        params.is_free = true;
-      }
-
-      const response = await axios.get(`${API_URL}/api/events`, { params });
+      const response = await axios.get(`${API_URL}/api/events`, { params: buildParams(0) });
       setEvents(response.data);
+      // If we got fewer than a full page back, there's nothing more to load.
+      setHasMore(response.data.length === PAGE_SIZE);
     } catch (error) {
       console.error('Error fetching events:', error);
+      setHasMore(false);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMore = async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const response = await axios.get(`${API_URL}/api/events`, {
+        params: buildParams(events.length),
+      });
+      if (response.data.length === 0) {
+        setHasMore(false);
+      } else {
+        // Defensive: backend may rarely return overlapping rows if data
+        // changed mid-scroll. Dedupe by event_id when appending.
+        setEvents((prev) => {
+          const seen = new Set(prev.map((e) => e.event_id));
+          const fresh = response.data.filter((e) => !seen.has(e.event_id));
+          return [...prev, ...fresh];
+        });
+        setHasMore(response.data.length === PAGE_SIZE);
+      }
+    } catch (error) {
+      console.error('Error loading more events:', error);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -330,15 +355,34 @@ export default function EventsPage() {
           </div>
         ) : viewMode === 'grid' ? (
           events.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {events.map((event) => (
-                <EventCard
-                  key={event.event_id}
-                  event={event}
-                  onClick={() => navigate(`/events/${event.event_id}`)}
-                />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {events.map((event) => (
+                  <EventCard
+                    key={event.event_id}
+                    event={event}
+                    onClick={() => navigate(`/events/${event.event_id}`)}
+                  />
+                ))}
+              </div>
+              <div className="mt-8 flex flex-col items-center gap-2" data-testid="events-load-more">
+                {hasMore ? (
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="rounded-full"
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                  >
+                    {loadingMore ? 'Loading...' : 'Load more events'}
+                  </Button>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    You've reached the end of the list ({events.length} events)
+                  </p>
+                )}
+              </div>
+            </>
           ) : (
             <div className="text-center py-16">
               <CalendarIcon className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
