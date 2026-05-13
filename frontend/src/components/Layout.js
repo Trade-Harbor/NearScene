@@ -78,15 +78,18 @@ export const Navbar = () => {
     <nav className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60" data-testid="navbar">
       <div className="container mx-auto px-4 md:px-6 lg:px-8 max-w-7xl">
         <div className="flex h-16 items-center justify-between">
-          {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2" data-testid="logo-link">
+          {/* Logo. pr-4 on the wordmark gives extra visual separation
+              from the first nav link — the gradient text can otherwise
+              read as bleeding into the adjacent "Events" link because
+              of the color contrast against the dark navbar. */}
+          <Link to="/" className="flex items-center space-x-2 shrink-0" data-testid="logo-link">
             <img
               src="/logo-icon.png"
               alt="LocalDrift"
               className="h-10 w-10 object-contain"
               loading="eager"
             />
-            <span className="font-heading font-bold text-xl gradient-brand-text hidden sm:block">LocalDrift</span>
+            <span className="font-heading font-bold text-xl gradient-brand-text hidden sm:block pr-4">LocalDrift</span>
           </Link>
 
           {/* Desktop Navigation — show only at xl+ (1280px). Nine links
